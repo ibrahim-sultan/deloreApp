@@ -15,19 +15,29 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, '../client/build')));
+const buildPath = path.join(__dirname, '../client/build');
+app.use(express.static(buildPath));
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => {
-  console.error('MongoDB connection error:', err);
-  console.error('Please ensure MongoDB is running and the MONGODB_URI in .env is correct');
-  console.error('MONGODB_URI:', process.env.MONGODB_URI);
-});
+// Connect to MongoDB with retry logic
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    console.error('Please ensure MongoDB is running and the MONGODB_URI in .env is correct');
+    console.error('MONGODB_URI:', process.env.MONGODB_URI);
+    
+    // Retry connection after 5 seconds
+    setTimeout(connectDB, 5000);
+  }
+};
+
+// Initial connection
+connectDB();
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -44,7 +54,12 @@ app.get('/api/health', (req, res) => {
 
 // Serve the React app for any non-API routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  res.sendFile(path.join(buildPath, 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Error serving client application');
+    }
+  });
 });
 
 const PORT = process.env.PORT || 5000;
