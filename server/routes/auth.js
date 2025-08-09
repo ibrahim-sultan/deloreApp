@@ -67,6 +67,9 @@ router.post('/register', [
     } else if (error.name === 'ValidationError') {
       // Mongoose validation error
       return res.status(400).json({ message: 'Validation error: ' + error.message });
+    } else if (error.name === 'MongooseServerSelectionError' || error.message.includes('buffering timed out')) {
+      // MongoDB connection timeout error
+      return res.status(500).json({ message: 'Database connection timeout. Please try again in a few moments.' });
     }
     
     // Generic server error
@@ -128,6 +131,9 @@ router.post('/login', [
     if (error.name === 'MongoError' || error.name === 'MongoServerError') {
       // Database connection or operation error
       return res.status(500).json({ message: 'Database error during login. Please check if MongoDB is running.' });
+    } else if (error.name === 'MongooseServerSelectionError' || error.message.includes('buffering timed out')) {
+      // MongoDB connection timeout error
+      return res.status(500).json({ message: 'Database connection timeout. Please try again in a few moments.' });
     }
     
     // Generic server error
@@ -153,6 +159,9 @@ router.get('/me', auth, async (req, res) => {
     if (error.name === 'MongoError' || error.name === 'MongoServerError') {
       // Database connection or operation error
       return res.status(500).json({ message: 'Database error while fetching user. Please check if MongoDB is running.' });
+    } else if (error.name === 'MongooseServerSelectionError' || error.message.includes('buffering timed out')) {
+      // MongoDB connection timeout error
+      return res.status(500).json({ message: 'Database connection timeout. Please try again in a few moments.' });
     }
     
     // Generic server error

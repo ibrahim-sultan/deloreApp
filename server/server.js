@@ -18,12 +18,16 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const buildPath = path.join(__dirname, '../client/build');
 app.use(express.static(buildPath));
 
-// Connect to MongoDB with retry logic
+// Connect to MongoDB with retry logic and better options
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // Increase server selection timeout to 30 seconds
+      socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
+      bufferMaxEntries: 0, // Disable buffering
+      bufferCommands: false, // Disable command buffering
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {

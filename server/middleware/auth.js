@@ -19,6 +19,10 @@ const auth = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    if (error.name === 'MongooseServerSelectionError' || error.message.includes('buffering timed out')) {
+      // MongoDB connection timeout error
+      return res.status(500).json({ message: 'Database connection timeout. Please try again in a few moments.' });
+    }
     res.status(401).json({ message: 'Token is not valid' });
   }
 };
