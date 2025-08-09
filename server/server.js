@@ -4,6 +4,17 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Validate required environment variables
+const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars);
+  console.error('Please check your .env file and ensure all required variables are set.');
+  console.error('Copy .env.example to .env and update the values.');
+  process.exit(1);
+}
+
 const app = express();
 
 // Middleware
