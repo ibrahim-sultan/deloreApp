@@ -125,7 +125,12 @@ router.post('/change-password', [
     }
 
     const { currentPassword, newPassword } = req.body;
-    const user = req.user;
+    
+    // Fetch the user with password field (auth middleware excludes password)
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
