@@ -181,6 +181,20 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Debug route to check users in database
+router.get('/debug-users', async (req, res) => {
+  try {
+    const users = await User.find({}, 'name email role isActive');
+    res.json({
+      message: 'Users in database',
+      count: users.length,
+      users: users
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching users', error: error.message });
+  }
+});
+
 // Create initial admin user (for first-time setup only)
 router.post('/create-admin', async (req, res) => {
   try {
