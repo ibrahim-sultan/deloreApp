@@ -29,13 +29,22 @@ const auth = async (req, res, next) => {
 
 const adminAuth = async (req, res, next) => {
   try {
+    console.log('AdminAuth middleware called');
+    console.log('Authorization header:', req.header('Authorization'));
+    
     await auth(req, res, () => {
+      console.log('Auth middleware passed, user:', req.user?.email, 'Role:', req.user?.role);
+      
       if (req.user.role !== 'admin') {
+        console.log('Access denied - user is not admin');
         return res.status(403).json({ message: 'Access denied. Admin role required.' });
       }
+      
+      console.log('Admin auth successful for user:', req.user.email);
       next();
     });
   } catch (error) {
+    console.error('AdminAuth error:', error);
     res.status(401).json({ message: 'Authorization failed' });
   }
 };

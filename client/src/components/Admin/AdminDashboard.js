@@ -12,7 +12,7 @@ import LoadingSpinner from '../Common/LoadingSpinner';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [dashboardData, setDashboardData] = useState(null);
@@ -20,8 +20,21 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // Only fetch data when authentication is confirmed
+    if (!authLoading && isAuthenticated && user) {
+      console.log('Authentication confirmed, fetching dashboard data...');
+      console.log('Current axios auth header:', axios.defaults.headers.common['Authorization']);
+      
+      // Small delay to ensure axios headers are fully set
+      setTimeout(() => {
+        fetchDashboardData();
+      }, 50);
+    } else if (!authLoading && !isAuthenticated) {
+      console.log('User not authenticated in AdminDashboard');
+      setError('Authentication required');
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated, user]);
 
   const fetchDashboardData = async () => {
     try {
