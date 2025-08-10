@@ -14,7 +14,20 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(() => {
+    // Clear any existing token on initial load for fresh start
+    // Comment out this line if you want to preserve login sessions
+    localStorage.removeItem('token');
+    return null;
+  });
+
+  // Function to clear all auth data
+  const clearAuthData = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    delete axios.defaults.headers.common['Authorization'];
+  };
 
   // Set axios default authorization header
   useEffect(() => {
@@ -34,7 +47,11 @@ export const AuthProvider = ({ children }) => {
           setUser(response.data.user);
         } catch (error) {
           console.error('Auth check failed:', error);
-          logout();
+          // Clear invalid token
+          localStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+          delete axios.defaults.headers.common['Authorization'];
         }
       }
       setLoading(false);

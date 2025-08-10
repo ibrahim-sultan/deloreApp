@@ -54,7 +54,7 @@ function AppContent() {
         <Navbar />
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             
             <Route path="/login" element={
               <PublicRoute>
