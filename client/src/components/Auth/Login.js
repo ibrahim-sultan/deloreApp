@@ -112,11 +112,8 @@ const Login = () => {
         </form>
 
         <div className="auth-footer">
-          <p>
-            Don't have an account?{' '}
-            <Link to="/register" className="auth-link">
-              Sign up here
-            </Link>
+          <p className="auth-note">
+            Staff accounts are created by administrators only.
           </p>
         </div>
       </div>

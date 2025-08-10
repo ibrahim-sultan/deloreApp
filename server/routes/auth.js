@@ -6,76 +6,7 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Register staff
-router.post('/register', [
-  body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-  body('email').isEmail().withMessage('Please enter a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, email, password } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
-    }
-
-    // Create new staff user
-    const user = new User({
-      name,
-      email,
-      password,
-      role: 'staff'
-    });
-
-    await user.save();
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    
-    // Handle specific error types
-    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
-      // Database connection or operation error
-      if (error.code === 11000) {
-        // Duplicate key error
-        return res.status(400).json({ message: 'User already exists with this email' });
-      }
-      return res.status(500).json({ message: 'Database error during registration. Please check if MongoDB is running.' });
-    } else if (error.name === 'ValidationError') {
-      // Mongoose validation error
-      return res.status(400).json({ message: 'Validation error: ' + error.message });
-    } else if (error.name === 'MongooseServerSelectionError' || error.message.includes('buffering timed out')) {
-      // MongoDB connection timeout error
-      return res.status(500).json({ message: 'Database connection timeout. Please try again in a few moments.' });
-    }
-    
-    // Generic server error
-    res.status(500).json({ message: 'Server error during registration: ' + error.message });
-  }
-});
+// Note: Public registration has been removed. Only admins can create staff accounts.
 
 // Login
 router.post('/login', [
@@ -161,7 +92,8 @@ router.get('/me', auth, async (req, res) => {
         id: req.user._id,
         name: req.user.name,
         email: req.user.email,
-        role: req.user.role
+        role: req.user.role,
+        isTemporaryPassword: req.user.isTemporaryPassword
       }
     });
   } catch (error) {
@@ -178,6 +110,42 @@ router.get('/me', auth, async (req, res) => {
     
     // Generic server error
     res.status(500).json({ message: 'Server error while fetching user: ' + error.message });
+  }
+});
+
+// Change password (for staff with temporary passwords)
+router.post('/change-password', [
+  body('currentPassword').exists().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+], auth, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const user = req.user;
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password and remove temporary password flags
+    user.password = newPassword;
+    user.isTemporaryPassword = false;
+    user.temporaryPasswordExpiry = null;
+    
+    await user.save();
+
+    res.json({
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Server error while changing password: ' + error.message });
   }
 });
 

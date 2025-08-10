@@ -27,6 +27,14 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  isTemporaryPassword: {
+    type: Boolean,
+    default: false
+  },
+  temporaryPasswordExpiry: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

@@ -7,6 +7,13 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    email: '',
+    temporaryPassword: ''
+  });
+  const [createLoading, setCreateLoading] = useState(false);
 
   const fetchStaffDetails = async (staffId) => {
     try {
@@ -47,12 +54,59 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     return new Date(dateString).toLocaleString();
   };
 
+  const handleCreateFormChange = (e) => {
+    setCreateFormData({
+      ...createFormData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const generateTemporaryPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCreateFormData({ ...createFormData, temporaryPassword: result });
+  };
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setCreateLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await axios.post('/api/admin/staff', createFormData);
+      setSuccess(`Staff member created successfully! Temporary password: ${response.data.temporaryCredentials.temporaryPassword}`);
+      setCreateFormData({ name: '', email: '', temporaryPassword: '' });
+      setShowCreateModal(false);
+      onUpdate(); // Refresh staff list
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to create staff member');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreateFormData({ name: '', email: '', temporaryPassword: '' });
+    setError('');
+  };
+
   return (
     <div className="management-section">
       <div className="management-header">
         <h2 className="management-title">Staff Management</h2>
         <div className="management-actions">
           <span className="staff-count">{staffMembers.length} Staff Members</span>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowCreateModal(true)}
+          >
+            + Add New Staff
+          </button>
         </div>
       </div>
 
@@ -210,6 +264,101 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Staff Modal */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={closeCreateModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Create New Staff Member</h2>
+              <button className="close-button" onClick={closeCreateModal}>
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateStaff} className="create-staff-form">
+              <div className="form-group">
+                <label htmlFor="name" className="form-label">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={createFormData.name}
+                  onChange={handleCreateFormChange}
+                  className="form-input"
+                  required
+                  placeholder="Enter staff member's full name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="email" className="form-label">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={createFormData.email}
+                  onChange={handleCreateFormChange}
+                  className="form-input"
+                  required
+                  placeholder="Enter staff member's email"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="temporaryPassword" className="form-label">
+                  Temporary Password
+                </label>
+                <div className="password-input-group">
+                  <input
+                    type="text"
+                    id="temporaryPassword"
+                    name="temporaryPassword"
+                    value={createFormData.temporaryPassword}
+                    onChange={handleCreateFormChange}
+                    className="form-input"
+                    required
+                    placeholder="Enter temporary password (min 6 characters)"
+                    minLength="6"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={generateTemporaryPassword}
+                  >
+                    Generate
+                  </button>
+                </div>
+                <small className="form-help">
+                  Staff member must change this password on first login
+                </small>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={closeCreateModal}
+                  disabled={createLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={createLoading}
+                >
+                  {createLoading ? 'Creating...' : 'Create Staff Member'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

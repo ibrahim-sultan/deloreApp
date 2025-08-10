@@ -6,6 +6,7 @@ import TaskCreation from './TaskCreation';
 import PaymentView from './PaymentView';
 import MessageView from './MessageView';
 import LoadingSpinner from '../Common/LoadingSpinner';
+import PasswordChange from '../Auth/PasswordChange';
 import './StaffDashboard.css';
 
 const StaffDashboard = () => {
@@ -25,13 +26,36 @@ const StaffDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userDetails, setUserDetails] = useState(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   useEffect(() => {
     // Only fetch data if user is authenticated
     if (user) {
+      fetchUserDetails();
       fetchDashboardData();
     }
   }, [user]);
+
+  const fetchUserDetails = async () => {
+    try {
+      const response = await axios.get('/api/auth/me');
+      setUserDetails(response.data.user);
+      
+      // Check if user has temporary password
+      if (response.data.user.isTemporaryPassword) {
+        setShowPasswordChange(true);
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    }
+  };
+
+  const handlePasswordChanged = async () => {
+    setShowPasswordChange(false);
+    // Refresh user details after password change
+    await fetchUserDetails();
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -223,8 +247,33 @@ const StaffDashboard = () => {
     </div>
   );
 
+  // If user has temporary password, show password change form
+  if (showPasswordChange && userDetails?.isTemporaryPassword) {
+    return (
+      <div className="page-container">
+        <div className="alert alert-warning" style={{ marginBottom: '2rem' }}>
+          <strong>Password Change Required:</strong> You must change your temporary password before accessing your dashboard.
+        </div>
+        <PasswordChange onPasswordChanged={handlePasswordChanged} />
+      </div>
+    );
+  }
+
   return (
     <div className="page-container">
+      {userDetails?.isTemporaryPassword && (
+        <div className="alert alert-info" style={{ marginBottom: '1rem' }}>
+          <strong>Notice:</strong> You are currently using a temporary password. 
+          <button 
+            className="btn btn-link" 
+            onClick={() => setShowPasswordChange(true)}
+            style={{ marginLeft: '0.5rem' }}
+          >
+            Change Password
+          </button>
+        </div>
+      )}
+      
       <div className="page-header">
         <h1 className="page-title">Welcome back, {user?.name}!</h1>
         <p className="page-subtitle">Manage your documents, tasks, and view your payments</p>
@@ -278,6 +327,21 @@ const StaffDashboard = () => {
       <div className="tab-content">
         {renderTabContent()}
       </div>
+
+      {/* Optional Password Change Modal */}
+      {showPasswordChange && !userDetails?.isTemporaryPassword && (
+        <div className="modal-overlay" onClick={() => setShowPasswordChange(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Change Password</h2>
+              <button className="close-button" onClick={() => setShowPasswordChange(false)}>
+                ×
+              </button>
+            </div>
+            <PasswordChange onPasswordChanged={handlePasswordChanged} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

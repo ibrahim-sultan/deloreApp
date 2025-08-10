@@ -1,4 +1,5 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Document = require('../models/Document');
 const Task = require('../models/Task');
@@ -138,11 +139,76 @@ router.get('/dashboard', adminAuth, async (req, res) => {
   }
 });
 
+// Create new staff member with temporary password (Admin only)
+router.post('/staff', [
+  body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
+  body('email').isEmail().withMessage('Please enter a valid email'),
+  body('temporaryPassword').isLength({ min: 6 }).withMessage('Temporary password must be at least 6 characters')
+], adminAuth, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, temporaryPassword } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
+
+    // Create new staff user with temporary password
+    const user = new User({
+      name,
+      email,
+      password: temporaryPassword,
+      role: 'staff',
+      isTemporaryPassword: true,
+      temporaryPasswordExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      isActive: true
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'Staff member created successfully with temporary password',
+      staff: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        isTemporaryPassword: user.isTemporaryPassword
+      },
+      temporaryCredentials: {
+        email: user.email,
+        temporaryPassword: temporaryPassword
+      }
+    });
+  } catch (error) {
+    console.error('Create staff error:', error);
+    
+    // Handle specific error types
+    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+      if (error.code === 11000) {
+        return res.status(400).json({ message: 'User already exists with this email' });
+      }
+      return res.status(500).json({ message: 'Database error during staff creation' });
+    } else if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Validation error: ' + error.message });
+    }
+    
+    res.status(500).json({ message: 'Server error during staff creation: ' + error.message });
+  }
+});
+
 // Get all staff members
 router.get('/staff', adminAuth, async (req, res) => {
   try {
     const staff = await User.find({ role: 'staff' })
-      .select('name email isActive createdAt')
+      .select('name email isActive isTemporaryPassword temporaryPasswordExpiry createdAt')
       .sort({ name: 1 });
 
     res.json({ staff });

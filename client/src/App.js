@@ -65,11 +65,7 @@ function AppContent() {
               </PublicRoute>
             } />
             
-            <Route path="/register" element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            } />
+            {/* Public registration removed - only admins can create staff accounts */}
             
             <Route path="/dashboard" element={
               <ProtectedRoute>
