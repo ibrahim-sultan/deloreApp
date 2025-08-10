@@ -45,15 +45,23 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('Attempting login for:', email);
       const response = await axios.post('/api/auth/login', { email, password });
       const { token: newToken, user: userData } = response.data;
+      
+      console.log('Login successful, user data:', userData);
+      console.log('Token received:', !!newToken);
       
       localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(userData);
       
+      // Verify axios headers are set
+      console.log('Axios auth header set:', axios.defaults.headers.common['Authorization']);
+      
       return { success: true, user: userData };
     } catch (error) {
+      console.error('Login error:', error);
       const message = error.response?.data?.message || 'Login failed';
       return { success: false, message };
     }

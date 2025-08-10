@@ -26,11 +26,29 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      console.log('Fetching admin dashboard data...');
+      console.log('Auth token present:', !!localStorage.getItem('token'));
+      
       const response = await axios.get('/api/admin/dashboard');
+      console.log('Dashboard data fetched successfully:', response.data);
       setDashboardData(response.data);
+      setError(''); // Clear any previous errors
     } catch (error) {
       console.error('Error fetching admin dashboard data:', error);
-      setError('Failed to load dashboard data');
+      console.error('Error response:', error.response);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      
+      let errorMessage = 'Failed to load dashboard data';
+      if (error.response?.status === 401) {
+        errorMessage = 'Unauthorized access. Please login again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
