@@ -14,14 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(() => {
-    // Force clear all authentication data on app initialization
-    localStorage.removeItem('token');
-    sessionStorage.clear();
-    // Also clear axios defaults
-    delete axios.defaults.headers.common['Authorization'];
-    return null;
-  });
+  const [token, setToken] = useState(localStorage.getItem('token'));
 
   // Function to clear all auth data
   const clearAuthData = () => {
@@ -71,12 +64,17 @@ export const AuthProvider = ({ children }) => {
       console.log('Login successful, user data:', userData);
       console.log('Token received:', !!newToken);
       
+      // Update all authentication state synchronously
       localStorage.setItem('token', newToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      
+      // Use functional updates to ensure state consistency
       setToken(newToken);
       setUser(userData);
       
       // Verify axios headers are set
       console.log('Axios auth header set:', axios.defaults.headers.common['Authorization']);
+      console.log('State updated - User:', userData.name, 'Role:', userData.role);
       
       return { success: true, user: userData };
     } catch (error) {

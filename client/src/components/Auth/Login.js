@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Auth.css';
@@ -10,9 +10,20 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, user, isAdmin } = useAuth();
   const navigate = useNavigate();
+
+  // Handle navigation after authentication state is updated
+  useEffect(() => {
+    if (pendingNavigation && isAuthenticated && user) {
+      console.log('Authentication confirmed, navigating to:', pendingNavigation);
+      navigate(pendingNavigation, { replace: true });
+      setPendingNavigation(null);
+      setLoading(false);
+    }
+  }, [isAuthenticated, user, pendingNavigation, navigate]);
 
   const handleChange = (e) => {
     setFormData({
@@ -25,23 +36,23 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setPendingNavigation(null);
 
     const result = await login(formData.email, formData.password);
 
     if (result.success) {
-      // Redirect based on user role
-      if (result.user.role === 'admin') {
-        navigate('/admin');
-      } else if (result.user.role === 'staff') {
-        navigate('/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      console.log('Login successful, user role:', result.user.role);
+      
+      // Set pending navigation based on user role
+      const targetRoute = result.user.role === 'admin' ? '/admin' : '/dashboard';
+      console.log('Setting pending navigation to:', targetRoute);
+      setPendingNavigation(targetRoute);
+      
+      // The useEffect will handle the actual navigation once state is updated
     } else {
       setError(result.message);
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
