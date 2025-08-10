@@ -14,7 +14,14 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(() => {
+    // Force clear all authentication data on app initialization
+    localStorage.removeItem('token');
+    sessionStorage.clear();
+    // Also clear axios defaults
+    delete axios.defaults.headers.common['Authorization'];
+    return null;
+  });
 
   // Function to clear all auth data
   const clearAuthData = () => {
