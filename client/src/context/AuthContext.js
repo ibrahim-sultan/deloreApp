@@ -14,12 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(() => {
-    // Clear any existing token on initial load for fresh start
-    // Comment out this line if you want to preserve login sessions
-    localStorage.removeItem('token');
-    return null;
-  });
+  const [token, setToken] = useState(localStorage.getItem('token'));
 
   // Function to clear all auth data
   const clearAuthData = () => {

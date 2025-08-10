@@ -83,27 +83,39 @@ router.post('/login', [
   body('password').exists().withMessage('Password is required')
 ], async (req, res) => {
   try {
+    console.log('Login attempt for:', req.body.email);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { email, password } = req.body;
 
     // Find user by email
+    console.log('Looking for user with email:', email);
     const user = await User.findOne({ email });
+    
     if (!user) {
+      console.log('User not found with email:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
+
+    console.log('User found:', user.email, 'Role:', user.role, 'Active:', user.isActive);
 
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('Password mismatch for user:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    console.log('Password match successful for user:', email);
+
     // Check if user is active
     if (!user.isActive) {
+      console.log('User account is deactivated:', email);
       return res.status(400).json({ message: 'Account is deactivated' });
     }
 
@@ -166,6 +178,47 @@ router.get('/me', auth, async (req, res) => {
     
     // Generic server error
     res.status(500).json({ message: 'Server error while fetching user: ' + error.message });
+  }
+});
+
+// Create initial admin user (for first-time setup only)
+router.post('/create-admin', async (req, res) => {
+  try {
+    // Check if any admin users already exist
+    const adminExists = await User.findOne({ role: 'admin' });
+    
+    if (adminExists) {
+      return res.status(400).json({ message: 'Admin user already exists' });
+    }
+    
+    // Create the admin user
+    const adminUser = new User({
+      name: 'Admin User',
+      email: 'admin@delore.com',
+      password: 'admin123',
+      role: 'admin',
+      isActive: true
+    });
+    
+    await adminUser.save();
+    console.log('Admin user created:', adminUser.email);
+    
+    res.json({
+      message: 'Admin user created successfully',
+      user: {
+        id: adminUser._id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role
+      },
+      credentials: {
+        email: 'admin@delore.com',
+        password: 'admin123'
+      }
+    });
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+    res.status(500).json({ message: 'Failed to create admin user', error: error.message });
   }
 });
 
