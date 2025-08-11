@@ -293,6 +293,52 @@ router.put('/staff/:id/toggle-status', adminAuth, async (req, res) => {
   }
 });
 
+// Delete staff member (Admin only)
+router.delete('/staff/:id', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.findById(req.params.id);
+    
+    if (!staff || staff.role !== 'staff') {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+
+    // Check if staff member has associated data
+    const documentCount = await Document.countDocuments({ uploadedBy: req.params.id });
+    const taskCount = await Task.countDocuments({ createdBy: req.params.id });
+    const paymentCount = await Payment.countDocuments({ staffMember: req.params.id });
+    
+    // Optional: You can choose to prevent deletion if staff has associated data
+    // or allow deletion and handle orphaned data
+    if (documentCount > 0 || taskCount > 0 || paymentCount > 0) {
+      // For safety, we'll prevent deletion if there's associated data
+      return res.status(400).json({ 
+        message: `Cannot delete staff member. They have ${documentCount} documents, ${taskCount} tasks, and ${paymentCount} payments associated with their account. Please transfer or remove this data first.`,
+        hasAssociatedData: true,
+        associatedData: {
+          documents: documentCount,
+          tasks: taskCount,
+          payments: paymentCount
+        }
+      });
+    }
+
+    // Delete the staff member
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({
+      message: 'Staff member deleted successfully',
+      deletedStaff: {
+        id: staff._id,
+        name: staff.name,
+        email: staff.email
+      }
+    });
+  } catch (error) {
+    console.error('Delete staff error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all documents with staff info
 router.get('/documents', adminAuth, async (req, res) => {
   try {

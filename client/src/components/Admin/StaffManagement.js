@@ -14,6 +14,8 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     temporaryPassword: ''
   });
   const [createLoading, setCreateLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchStaffDetails = async (staffId) => {
     try {
@@ -95,6 +97,38 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     setError('');
   };
 
+  const handleDeleteStaff = async (staffId) => {
+    setDeleteLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await axios.delete(`/api/admin/staff/${staffId}`);
+      setSuccess('Staff member deleted successfully');
+      setDeleteConfirm(null);
+      onUpdate(); // Refresh staff list
+      
+      // Close details modal if the deleted staff was being viewed
+      if (selectedStaff === staffId) {
+        closeDetails();
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to delete staff member';
+      setError(errorMessage);
+      setDeleteConfirm(null);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const confirmDelete = (staff) => {
+    setDeleteConfirm(staff);
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null);
+  };
+
   return (
     <div className="management-section">
       <div className="management-header">
@@ -149,6 +183,13 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
                 onClick={() => toggleStaffStatus(staff._id, staff.isActive)}
               >
                 {staff.isActive ? 'Deactivate' : 'Activate'}
+              </button>
+              <button
+                className="btn btn-small btn-danger"
+                onClick={() => confirmDelete(staff)}
+                title="Delete Staff Member"
+              >
+                Delete
               </button>
             </div>
 
@@ -359,6 +400,52 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Delete Staff Member</h2>
+              <button className="close-button" onClick={cancelDelete}>
+                ×
+              </button>
+            </div>
+
+            <div className="delete-confirmation">
+              <div className="warning-icon">⚠️</div>
+              <h3>Are you sure you want to delete this staff member?</h3>
+              <div className="staff-info-preview">
+                <p><strong>Name:</strong> {deleteConfirm.name}</p>
+                <p><strong>Email:</strong> {deleteConfirm.email}</p>
+              </div>
+              <p className="warning-text">
+                This action cannot be undone. The staff member will be permanently removed from the system.
+                If they have associated documents, tasks, or payments, the deletion may be prevented.
+              </p>
+              
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={cancelDelete}
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => handleDeleteStaff(deleteConfirm._id)}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? 'Deleting...' : 'Delete Staff Member'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
