@@ -1,11 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const DocumentManagement = ({ documentsByStaff, onUpdate }) => {
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('DocumentManagement Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="alert alert-error">
+          <h3>Something went wrong with the document management.</h3>
+          <p>Error: {this.state.error?.message}</p>
+          <button onClick={() => this.setState({ hasError: false, error: null })}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
   const [allDocuments, setAllDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
+  const [mounted, setMounted] = useState(false);
+  
+  // Debug: log when component mounts/unmounts
+  useEffect(() => {
+    console.log('DocumentManagement component mounted');
+    setMounted(true);
+    
+    return () => {
+      console.log('DocumentManagement component unmounted');
+    };
+  }, []);
 
   useEffect(() => {
     fetchAllDocuments();
@@ -14,10 +57,29 @@ const DocumentManagement = ({ documentsByStaff, onUpdate }) => {
   const fetchAllDocuments = async () => {
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
+      console.log('Fetching admin documents...');
+      
       const response = await axios.get('/api/admin/documents');
-      setAllDocuments(response.data.documents || []);
+      console.log('Admin documents response:', response.data);
+      
+      const documents = response.data.documents || [];
+      console.log('Setting documents:', documents.length, 'documents found');
+      setAllDocuments(documents);
     } catch (error) {
-      setError('Failed to load documents');
+      console.error('Error fetching admin documents:', error);
+      console.error('Error response:', error.response);
+      
+      let errorMessage = 'Failed to load documents';
+      if (error.response?.status === 401) {
+        errorMessage = 'Unauthorized. Please login again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -38,7 +100,42 @@ const DocumentManagement = ({ documentsByStaff, onUpdate }) => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      console.error('Download error:', error);
       setError('Failed to download document');
+    }
+  };
+
+  const handleDelete = async (documentId, documentTitle) => {
+    if (!window.confirm(`Are you sure you want to delete "${documentTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await axios.delete(`/api/documents/${documentId}`);
+      
+      // Remove the document from local state
+      setAllDocuments(prevDocs => prevDocs.filter(doc => doc._id !== documentId));
+      
+      // Call onUpdate to refresh parent component data
+      if (onUpdate) {
+        onUpdate();
+      }
+      
+      setError(''); // Clear any previous errors
+    } catch (error) {
+      console.error('Delete document error:', error);
+      let errorMessage = 'Failed to delete document';
+      if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to delete this document';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Document not found';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -200,6 +297,13 @@ const DocumentManagement = ({ documentsByStaff, onUpdate }) => {
                         >
                           Download
                         </button>
+                        <button
+                          className="btn btn-small btn-danger"
+                          onClick={() => handleDelete(doc._id, doc.title)}
+                          style={{ marginLeft: '8px' }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -243,4 +347,11 @@ const DocumentManagement = ({ documentsByStaff, onUpdate }) => {
   );
 };
 
-export default DocumentManagement;
+// Wrap the component with ErrorBoundary
+const DocumentManagementWithErrorBoundary = (props) => (
+  <ErrorBoundary>
+    <DocumentManagement {...props} />
+  </ErrorBoundary>
+);
+
+export default DocumentManagementWithErrorBoundary;
