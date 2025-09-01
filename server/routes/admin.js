@@ -339,15 +339,63 @@ router.delete('/staff/:id', adminAuth, async (req, res) => {
   }
 });
 
+// Get expired documents count (test endpoint)
+router.get('/documents/expired/count', adminAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const expiredCount = await Document.countDocuments({
+      expiryDate: { $lt: now }
+    });
+    
+    const expiredDocuments = await Document.find({
+      expiryDate: { $lt: now }
+    }).populate('uploadedBy', 'name email').select('title expiryDate');
+    
+    console.log(`Found ${expiredCount} expired documents`);
+    expiredDocuments.forEach(doc => {
+      console.log(`- ${doc.title} (expired: ${doc.expiryDate})`);
+    });
+    
+    res.json({ 
+      expiredCount, 
+      currentTime: now,
+      expiredDocuments: expiredDocuments.map(doc => ({
+        id: doc._id,
+        title: doc.title,
+        expiryDate: doc.expiryDate,
+        uploadedBy: doc.uploadedBy?.name || 'Unknown'
+      }))
+    });
+  } catch (error) {
+    console.error('Get expired documents count error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all documents with staff info
 router.get('/documents', adminAuth, async (req, res) => {
   try {
+    console.log('Fetching all documents for admin...');
+    
     const documents = await Document.find()
       .populate('uploadedBy', 'name email')
       .sort({ createdAt: -1 })
       .select('-filePath');
 
-    res.json({ documents });
+    console.log(`Found ${documents.length} documents`);
+    
+    // Filter out documents without valid uploadedBy reference and log them
+    const validDocuments = documents.filter(doc => {
+      if (!doc.uploadedBy) {
+        console.warn(`Document ${doc._id} has no uploadedBy reference`);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log(`${validDocuments.length} documents have valid uploadedBy references`);
+
+    res.json({ documents: validDocuments });
   } catch (error) {
     console.error('Get all documents error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -372,5 +420,184 @@ router.get('/tasks', adminAuth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Admin download document
+router.get('/documents/:id/download', adminAuth, async (req, res) => {
+  const fs = require('fs');
+  
+  try {
+    console.log(`Admin ${req.user.email} downloading document ${req.params.id}`);
+    
+    const document = await Document.findById(req.params.id);
+
+    if (!document) {
+      console.log('Document not found');
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    console.log('Document found:', {
+      id: document._id,
+      title: document.title,
+      filePath: document.filePath,
+      originalName: document.originalName
+    });
+
+    if (!document.filePath || !fs.existsSync(document.filePath)) {
+      console.log('File not found on filesystem:', document.filePath);
+      return res.status(404).json({ message: 'File not found on server' });
+    }
+
+    console.log('Sending file for download');
+    res.download(document.filePath, document.originalName);
+  } catch (error) {
+    console.error('Admin download document error:', error);
+    res.status(500).json({ message: 'Server error during download: ' + error.message });
+  }
+});
+
+// Bulk delete expired documents (must come before :id route)
+router.delete('/documents/expired/bulk', adminAuth, async (req, res) => {
+  const fs = require('fs');
+  
+  try {
+    console.log(`Admin ${req.user.email} deleting all expired documents`);
+    
+    const now = new Date();
+    
+    // Find all expired documents
+    const expiredDocuments = await Document.find({
+      expiryDate: { $lt: now }
+    });
+    
+    console.log(`Found ${expiredDocuments.length} expired documents`);
+    
+    if (expiredDocuments.length === 0) {
+      return res.json({ message: 'No expired documents found', deletedCount: 0 });
+    }
+    
+    let filesDeleted = 0;
+    let documentsDeleted = 0;
+    const errors = [];
+    
+    // Delete each expired document
+    for (const document of expiredDocuments) {
+      try {
+        // Delete file from filesystem
+        if (document.filePath && fs.existsSync(document.filePath)) {
+          fs.unlinkSync(document.filePath);
+          filesDeleted++;
+          console.log(`Deleted file: ${document.filePath}`);
+        }
+        
+        // Delete from database
+        await Document.findByIdAndDelete(document._id);
+        documentsDeleted++;
+        console.log(`Deleted document: ${document.title}`);
+        
+      } catch (error) {
+        console.error(`Error deleting document ${document._id}:`, error);
+        errors.push({ documentId: document._id, error: error.message });
+      }
+    }
+    
+    console.log(`Bulk deletion complete: ${documentsDeleted} documents deleted, ${filesDeleted} files deleted`);
+    
+    res.json({
+      message: `Successfully deleted ${documentsDeleted} expired documents`,
+      deletedCount: documentsDeleted,
+      filesDeleted: filesDeleted,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('Bulk delete expired documents error:', error);
+    res.status(500).json({ message: 'Server error during bulk deletion: ' + error.message });
+  }
+});
+
+// Admin delete document
+router.delete('/documents/:id', adminAuth, async (req, res) => {
+  const fs = require('fs');
+  
+  try {
+    console.log(`Admin ${req.user.email} deleting document ${req.params.id}`);
+    
+    const document = await Document.findById(req.params.id);
+
+    if (!document) {
+      console.log('Document not found');
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Check if document is expired
+    const now = new Date();
+    const isExpired = now > document.expiryDate;
+    
+    console.log('Document found for deletion:', {
+      id: document._id,
+      title: document.title,
+      filePath: document.filePath,
+      expiryDate: document.expiryDate,
+      isExpired: isExpired,
+      currentDate: now
+    });
+
+    // Admin can delete any document, including expired ones
+    console.log('Admin has full deletion privileges');
+
+    // Delete file from filesystem
+    let fileDeleted = false;
+    try {
+      if (document.filePath && fs.existsSync(document.filePath)) {
+        console.log('Deleting file from filesystem:', document.filePath);
+        fs.unlinkSync(document.filePath);
+        fileDeleted = true;
+        console.log('File deleted from filesystem successfully');
+      } else {
+        console.log('File not found on filesystem, continuing with database deletion');
+      }
+    } catch (fileError) {
+      console.error('Error deleting file from filesystem:', fileError);
+      console.log('Continuing with database deletion despite file error');
+      // Continue with document deletion even if file deletion fails
+    }
+
+    // Delete document from database
+    console.log('Attempting to delete document from database...');
+    const deletedDoc = await Document.findByIdAndDelete(req.params.id);
+    
+    if (!deletedDoc) {
+      console.error('Document was not found in database during deletion');
+      return res.status(404).json({ message: 'Document not found during deletion' });
+    }
+    
+    console.log('Document deleted successfully from database');
+
+    res.json({ 
+      message: 'Document deleted successfully',
+      details: {
+        documentId: req.params.id,
+        title: document.title,
+        wasExpired: isExpired,
+        fileDeleted: fileDeleted
+      }
+    });
+  } catch (error) {
+    console.error('Admin delete document error:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    let errorMessage = 'Server error during deletion';
+    if (error.name === 'CastError') {
+      errorMessage = 'Invalid document ID format';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    res.status(500).json({ message: errorMessage });
+  }
+});
+
 
 module.exports = router;

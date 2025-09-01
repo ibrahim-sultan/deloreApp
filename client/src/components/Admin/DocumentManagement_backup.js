@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 // Error Boundary Component
@@ -40,25 +40,21 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [mounted, setMounted] = useState(false);
   
-  // Refs to track component mount state and prevent memory leaks
-  const isMounted = useRef(true);
-  
   // Debug: log when component mounts/unmounts
   useEffect(() => {
     console.log('DocumentManagement component mounted');
     setMounted(true);
-    isMounted.current = true;
     
     return () => {
       console.log('DocumentManagement component unmounted');
-      isMounted.current = false;
     };
   }, []);
 
-  // Memoize the fetch function to prevent unnecessary re-renders
-  const fetchAllDocuments = useCallback(async () => {
-    if (!isMounted.current) return;
-    
+  useEffect(() => {
+    fetchAllDocuments();
+  }, []);
+
+  const fetchAllDocuments = async () => {
     try {
       setLoading(true);
       setError(''); // Clear previous errors
@@ -67,16 +63,12 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       const response = await axios.get('/api/admin/documents');
       console.log('Admin documents response:', response.data);
       
-      if (!isMounted.current) return; // Prevent state updates if unmounted
-      
       const documents = response.data.documents || [];
       console.log('Setting documents:', documents.length, 'documents found');
       setAllDocuments(documents);
     } catch (error) {
       console.error('Error fetching admin documents:', error);
       console.error('Error response:', error.response);
-      
-      if (!isMounted.current) return; // Prevent state updates if unmounted
       
       let errorMessage = 'Failed to load documents';
       if (error.response?.status === 401) {
@@ -89,29 +81,15 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       
       setError(errorMessage);
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, []);
-
-  // Fetch documents when component mounts
-  useEffect(() => {
-    fetchAllDocuments();
-  }, [fetchAllDocuments]);
+  };
 
   const handleDownload = async (documentId, filename) => {
     try {
-      setLoading(true);
-      console.log('Attempting to download document:', documentId, filename);
-      
-      // Use admin-specific download route
-      const response = await axios.get(`/api/admin/documents/${documentId}/download`, {
+      const response = await axios.get(`/api/documents/${documentId}/download`, {
         responseType: 'blob'
       });
-      
-      // Check if component is still mounted before continuing
-      if (!isMounted.current) return;
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -121,19 +99,9 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      setError('');
-      console.log('Document downloaded successfully');
     } catch (error) {
       console.error('Download error:', error);
-      console.error('Download error response:', error.response);
-      if (isMounted.current) {
-        const errorMessage = error.response?.data?.message || 'Failed to download document';
-        setError(errorMessage);
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+      setError('Failed to download document');
     }
   };
 
@@ -144,15 +112,7 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
 
     try {
       setLoading(true);
-      console.log('Attempting to delete document:', documentId, documentTitle);
-      
-      // Use admin-specific delete route
-      const response = await axios.delete(`/api/admin/documents/${documentId}`);
-      
-      // Check if component is still mounted before continuing
-      if (!isMounted.current) return;
-      
-      console.log('Document deleted successfully:', response.data);
+      await axios.delete(`/api/documents/${documentId}`);
       
       // Remove the document from local state
       setAllDocuments(prevDocs => prevDocs.filter(doc => doc._id !== documentId));
@@ -165,10 +125,6 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       setError(''); // Clear any previous errors
     } catch (error) {
       console.error('Delete document error:', error);
-      console.error('Delete error response:', error.response);
-      
-      if (!isMounted.current) return;
-      
       let errorMessage = 'Failed to delete document';
       if (error.response?.status === 403) {
         errorMessage = 'You do not have permission to delete this document';
@@ -179,58 +135,7 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       }
       setError(errorMessage);
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleBulkDeleteExpired = async () => {
-    const expiredCount = allDocuments.filter(doc => getExpiryStatus(doc.expiryDate).status === 'expired').length;
-    
-    if (expiredCount === 0) {
-      setError('No expired documents found');
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete all ${expiredCount} expired documents? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('Attempting to bulk delete expired documents');
-      
-      const response = await axios.delete('/api/admin/documents/expired/bulk');
-      
-      if (!isMounted.current) return;
-      
-      console.log('Bulk delete successful:', response.data);
-      
-      // Refresh the document list
-      await fetchAllDocuments();
-      
-      // Call onUpdate to refresh parent component data
-      if (onUpdate) {
-        onUpdate();
-      }
-      
-      setError(''); // Clear any previous errors
-    } catch (error) {
-      console.error('Bulk delete error:', error);
-      console.error('Bulk delete error response:', error.response);
-      
-      if (!isMounted.current) return;
-      
-      let errorMessage = 'Failed to delete expired documents';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-      setError(errorMessage);
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -264,13 +169,13 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
     if (selectedStaff === 'all') {
       return allDocuments;
     }
-    return allDocuments.filter(doc => doc.uploadedBy && doc.uploadedBy._id === selectedStaff);
+    return allDocuments.filter(doc => doc.uploadedBy._id === selectedStaff);
   };
 
   const getUniqueStaff = () => {
     const staffMap = new Map();
     allDocuments.forEach(doc => {
-      if (doc.uploadedBy && doc.uploadedBy._id) {
+      if (doc.uploadedBy) {
         staffMap.set(doc.uploadedBy._id, doc.uploadedBy);
       }
     });
@@ -290,36 +195,18 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
             onChange={(e) => setSelectedStaff(e.target.value)}
             className="form-input"
             style={{ width: 'auto' }}
-            disabled={loading}
           >
             <option value="all">All Staff ({allDocuments.length} documents)</option>
             {uniqueStaff.map(staff => (
               <option key={staff._id} value={staff._id}>
-                {staff.name} ({allDocuments.filter(doc => doc.uploadedBy && doc.uploadedBy._id === staff._id).length})
+                {staff.name} ({allDocuments.filter(doc => doc.uploadedBy._id === staff._id).length})
               </option>
             ))}
           </select>
-          <button 
-            onClick={() => fetchAllDocuments()} 
-            className="btn btn-small btn-primary" 
-            disabled={loading}
-            style={{ marginLeft: '10px' }}
-          >
-            Refresh
-          </button>
-          {allDocuments.filter(doc => getExpiryStatus(doc.expiryDate).status === 'expired').length > 0 && (
-            <button 
-              onClick={handleBulkDeleteExpired}
-              className="btn btn-small btn-danger" 
-              disabled={loading}
-              style={{ marginLeft: '10px' }}
-              title="Delete all expired documents"
-            >
-              Delete Expired ({allDocuments.filter(doc => getExpiryStatus(doc.expiryDate).status === 'expired').length})
-            </button>
-          )}
         </div>
       </div>
+
+      {error && <div className="alert alert-error">{error}</div>}
 
       {/* Document Statistics */}
       <div className="document-stats">
@@ -349,12 +236,8 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
 
       {/* Documents Table */}
       <div className="documents-table-container">
-        {error && <div className="alert alert-error">{error}</div>}
         {loading ? (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>Loading documents...</p>
-          </div>
+          <div className="loading">Loading documents...</div>
         ) : filteredDocuments.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📄</div>
@@ -393,9 +276,9 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
                     </td>
                     <td>
                       <div>
-                        <strong>{doc.uploadedBy?.name || 'Unknown User'}</strong>
+                        <strong>{doc.uploadedBy?.name}</strong>
                         <br />
-                        <small>{doc.uploadedBy?.email || 'No email'}</small>
+                        <small>{doc.uploadedBy?.email}</small>
                       </div>
                     </td>
                     <td>{formatFileSize(doc.fileSize)}</td>
@@ -411,7 +294,6 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
                         <button
                           className="btn btn-small btn-primary"
                           onClick={() => handleDownload(doc._id, doc.originalName)}
-                          disabled={loading}
                         >
                           Download
                         </button>
@@ -419,7 +301,6 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
                           className="btn btn-small btn-danger"
                           onClick={() => handleDelete(doc._id, doc.title)}
                           style={{ marginLeft: '8px' }}
-                          disabled={loading}
                         >
                           Delete
                         </button>

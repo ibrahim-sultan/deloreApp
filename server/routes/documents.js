@@ -134,61 +134,99 @@ router.get('/:id', auth, async (req, res) => {
 // Download document
 router.get('/:id/download', auth, async (req, res) => {
   try {
+    console.log(`Admin ${req.user.email} attempting to download document ${req.params.id}`);
+    
     const document = await Document.findById(req.params.id);
 
     if (!document) {
+      console.log('Document not found');
       return res.status(404).json({ message: 'Document not found' });
     }
 
+    console.log('Document found:', {
+      id: document._id,
+      title: document.title,
+      uploadedBy: document.uploadedBy,
+      filePath: document.filePath
+    });
+
     // Check if user owns the document or is admin
-    if (document.uploadedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    if (document.uploadedBy && document.uploadedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.log('Access denied for user');
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    if (!fs.existsSync(document.filePath)) {
+    // For admin, always allow download regardless of owner
+    if (req.user.role === 'admin') {
+      console.log('Admin access granted');
+    }
+
+    if (!document.filePath || !fs.existsSync(document.filePath)) {
+      console.log('File not found on filesystem:', document.filePath);
       return res.status(404).json({ message: 'File not found on server' });
     }
 
+    console.log('Sending file for download');
     res.download(document.filePath, document.originalName);
   } catch (error) {
     console.error('Download document error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error during download' });
   }
 });
 
 // Delete document
 router.delete('/:id', auth, async (req, res) => {
   try {
-    // Populate the uploadedBy field to ensure proper comparison
-    const document = await Document.findById(req.params.id).populate('uploadedBy', '_id');
+    console.log(`Admin ${req.user.email} attempting to delete document ${req.params.id}`);
+    
+    // First find the document without population to avoid issues with missing uploadedBy
+    const document = await Document.findById(req.params.id);
 
     if (!document) {
+      console.log('Document not found');
       return res.status(404).json({ message: 'Document not found' });
     }
 
-    // Check if user owns the document or is admin
-    const documentOwnerId = document.uploadedBy._id.toString();
-    const userId = req.user._id.toString();
-    
-    if (documentOwnerId !== userId && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
+    console.log('Document found:', {
+      id: document._id,
+      title: document.title,
+      uploadedBy: document.uploadedBy,
+      filePath: document.filePath
+    });
+
+    // Admin can delete any document, staff can only delete their own
+    if (req.user.role !== 'admin') {
+      // For non-admin users, check ownership
+      if (!document.uploadedBy || document.uploadedBy.toString() !== req.user._id.toString()) {
+        console.log('Access denied for non-admin user');
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    } else {
+      console.log('Admin access granted for deletion');
     }
 
     // Delete file from filesystem
     try {
       if (document.filePath && fs.existsSync(document.filePath)) {
+        console.log('Deleting file from filesystem:', document.filePath);
         fs.unlinkSync(document.filePath);
+      } else {
+        console.log('File not found on filesystem, continuing with database deletion');
       }
     } catch (fileError) {
       console.error('Error deleting file from filesystem:', fileError);
       // Continue with document deletion even if file deletion fails
     }
 
+    // Delete document from database
     await Document.findByIdAndDelete(req.params.id);
+    console.log('Document deleted successfully from database');
 
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {
     console.error('Delete document error:', error);
+    console.error('Error stack:', error.stack);
+    
     // Provide more specific error message based on error type
     if (error.name === 'CastError') {
       return res.status(400).json({ message: 'Invalid document ID format' });
@@ -196,7 +234,7 @@ router.delete('/:id', auth, async (req, res) => {
     if (error.name === 'MongoError' || error.name === 'MongoServerError') {
       return res.status(500).json({ message: 'Database error during document deletion' });
     }
-    res.status(500).json({ message: 'Server error during document deletion' });
+    res.status(500).json({ message: 'Server error during document deletion: ' + error.message });
   }
 });
 
