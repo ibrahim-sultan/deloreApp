@@ -80,7 +80,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background-color: #f8f9fa;
+  background-color: #444;
   border-radius: 8px;
   transition: all 0.3s ease;
 }
@@ -94,13 +94,13 @@
   margin: 0 0 4px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: white;
 }
 
 .item-info p {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: white;
 }
 
 .item-date {
@@ -142,7 +142,7 @@
 }
 
 .document-item {
-  background: white;
+  background: #444;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -161,13 +161,13 @@
   margin: 0 0 8px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: white;
 }
 
 .document-info p {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: white;
 }
 
 .document-meta {
@@ -219,7 +219,7 @@
 }
 
 .task-item {
-  background: white;
+  background: #444;
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -241,12 +241,12 @@
 .task-title {
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: white;
   margin: 0;
 }
 
 .task-description {
-  color: #666;
+  color: white;
   margin-bottom: 16px;
   line-height: 1.5;
 }
@@ -274,7 +274,7 @@
 
 .task-detail-value {
   font-size: 14px;
-  color: #333;
+  color: white;
   font-weight: 500;
 }
 
@@ -284,7 +284,7 @@
 }
 
 .payment-item {
-  background: white;
+  background: #444;
   padding: 24px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -297,13 +297,13 @@
   margin: 0 0 8px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: white;
 }
 
 .payment-info p {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: white;
 }
 
 .payment-amount {
@@ -324,7 +324,7 @@
 }
 
 .message-item {
-  background: white;
+  background: #444;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -353,7 +353,7 @@
 .message-subject {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: white;
   margin: 0;
 }
 
@@ -364,13 +364,13 @@
 
 .message-sender {
   font-size: 14px;
-  color: #666;
+  color: white;
   margin-bottom: 8px;
 }
 
 .message-preview {
   font-size: 14px;
-  color: #666;
+  color: white;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
