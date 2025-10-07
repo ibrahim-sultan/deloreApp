@@ -64,16 +64,6 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         $unwind: '$staff'
       },
       {
-        $addFields: {
-          totalHours: {
-            $divide: [
-              { $subtract: ['$departureDateTime', '$arrivalDateTime'] },
-              3600000 // Convert milliseconds to hours
-            ]
-          }
-        }
-      },
-      {
         $group: {
           _id: '$staff._id',
           staffName: { $first: '$staff.name' },
@@ -86,8 +76,6 @@ router.get('/dashboard', adminAuth, async (req, res) => {
               title: '$title',
               description: '$description',
               location: '$location',
-              arrivalDateTime: '$arrivalDateTime',
-              departureDateTime: '$departureDateTime',
               status: '$status',
               totalHours: '$totalHours',
               createdAt: '$createdAt'
@@ -241,8 +229,7 @@ router.get('/staff/:id', adminAuth, async (req, res) => {
 
     // Calculate total hours worked
     const totalHours = tasks.reduce((sum, task) => {
-      const hours = (task.departureDateTime - task.arrivalDateTime) / (1000 * 60 * 60);
-      return sum + hours;
+      return sum + (task.totalHours || 0);
     }, 0);
 
     res.json({
@@ -255,8 +242,7 @@ router.get('/staff/:id', adminAuth, async (req, res) => {
       },
       documents,
       tasks: tasks.map(task => ({
-        ...task.toObject(),
-        totalHours: Math.round(((task.departureDateTime - task.arrivalDateTime) / (1000 * 60 * 60)) * 100) / 100
+        ...task.toObject()
       })),
       payments
     });
@@ -409,12 +395,7 @@ router.get('/tasks', adminAuth, async (req, res) => {
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
 
-    const tasksWithHours = tasks.map(task => ({
-      ...task.toObject(),
-      totalHours: Math.round(((task.departureDateTime - task.arrivalDateTime) / (1000 * 60 * 60)) * 100) / 100
-    }));
-
-    res.json({ tasks: tasksWithHours });
+    res.json({ tasks });
   } catch (error) {
     console.error('Get all tasks error:', error);
     res.status(500).json({ message: 'Server error' });

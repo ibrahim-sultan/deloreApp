@@ -34,3 +34,23 @@ yarn.lock
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Server logs
+server/server.log
+*.log
+
+# Test files created during development
+check-*.js
+create-*.js
+list-*.js
+test-*.js
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Server node_modules
+server/node_modules/

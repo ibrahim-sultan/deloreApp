@@ -4,7 +4,15 @@ const taskSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    validate: {
+      validator: function(v) {
+        // Title must contain total hours as numbers (e.g., "Task Name 8", "Project Work 4.5")
+        const hoursMatch = v.match(/\d+(\.\d+)?/);
+        return hoursMatch !== null;
+      },
+      message: 'Title must include total hours as numbers (e.g., "Task Name 8" or "Project Work 4.5")'
+    }
   },
   description: {
     type: String,
@@ -16,13 +24,16 @@ const taskSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  arrivalDateTime: {
-    type: Date,
-    required: true
-  },
-  departureDateTime: {
-    type: Date,
-    required: true
+  totalHours: {
+    type: Number,
+    required: true,
+    min: [0.1, 'Total hours must be at least 0.1'],
+    validate: {
+      validator: function(v) {
+        return v > 0;
+      },
+      message: 'Total hours must be greater than 0'
+    }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -42,10 +53,18 @@ const taskSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Calculate total hours between arrival and departure
-taskSchema.virtual('totalHours').get(function() {
-  const diffMs = this.departureDateTime - this.arrivalDateTime;
-  return Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
+// Extract total hours from title for validation consistency
+taskSchema.pre('save', function(next) {
+  if (this.isModified('title')) {
+    const hoursMatch = this.title.match(/\d+(\.\d+)?/);
+    if (hoursMatch) {
+      const extractedHours = parseFloat(hoursMatch[0]);
+      // Optionally sync the totalHours field with the hours in the title
+      // Uncomment the next line if you want automatic sync
+      // this.totalHours = extractedHours;
+    }
+  }
+  next();
 });
 
 module.exports = mongoose.model('Task', taskSchema);

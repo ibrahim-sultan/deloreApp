@@ -7,8 +7,7 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     title: '',
     description: '',
     location: '',
-    arrivalDateTime: '',
-    departureDateTime: ''
+    totalHours: ''
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
@@ -27,12 +26,24 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     setError('');
     setSuccess('');
 
-    // Validate dates
-    const arrival = new Date(formData.arrivalDateTime);
-    const departure = new Date(formData.departureDateTime);
+    // Validate total hours
+    const hours = parseFloat(formData.totalHours);
+    if (isNaN(hours) || hours <= 0) {
+      setError('Total hours must be a positive number');
+      setCreating(false);
+      return;
+    }
 
-    if (departure <= arrival) {
-      setError('Departure time must be after arrival time');
+    if (hours < 0.1) {
+      setError('Total hours must be at least 0.1');
+      setCreating(false);
+      return;
+    }
+
+    // Validate that title contains numbers (hours)
+    const hoursMatch = formData.title.match(/\d+(\.\d+)?/);
+    if (!hoursMatch) {
+      setError('Title must include total hours as numbers (e.g., "Task Name 8" or "Project Work 4.5")');
       setCreating(false);
       return;
     }
@@ -44,13 +55,14 @@ const TaskCreation = ({ tasks, onUpdate }) => {
         title: '',
         description: '',
         location: '',
-        arrivalDateTime: '',
-        departureDateTime: ''
+        totalHours: ''
       });
       setShowTaskForm(false);
       onUpdate();
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to create task';
+      const message = error.response?.data?.message || 
+                     error.response?.data?.errors?.[0]?.msg || 
+                     'Failed to create task';
       setError(message);
     } finally {
       setCreating(false);
@@ -87,14 +99,6 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     return new Date(dateTime).toLocaleString();
   };
 
-  const calculateHours = (arrival, departure) => {
-    const arrivalTime = new Date(arrival);
-    const departureTime = new Date(departure);
-    const diffMs = departureTime - arrivalTime;
-    const hours = diffMs / (1000 * 60 * 60);
-    return Math.round(hours * 100) / 100;
-  };
-
   return (
     <div className="task-section">
       <div className="section-header">
@@ -116,7 +120,7 @@ const TaskCreation = ({ tasks, onUpdate }) => {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="title" className="form-label">Task Title</label>
+              <label htmlFor="title" className="form-label">Task Title (must include hours)</label>
               <input
                 type="text"
                 id="title"
@@ -125,8 +129,9 @@ const TaskCreation = ({ tasks, onUpdate }) => {
                 onChange={handleInputChange}
                 className="form-input"
                 required
-                placeholder="Enter task title"
+                placeholder="e.g., 'Website Development 8' or 'Client Meeting 2.5'"
               />
+              <small className="form-help">Title must include total hours as numbers</small>
             </div>
 
             <div className="form-group">
@@ -158,32 +163,21 @@ const TaskCreation = ({ tasks, onUpdate }) => {
             />
           </div>
 
-          <div className="datetime-row">
-            <div className="form-group">
-              <label htmlFor="arrivalDateTime" className="form-label">Arrival Date & Time</label>
-              <input
-                type="datetime-local"
-                id="arrivalDateTime"
-                name="arrivalDateTime"
-                value={formData.arrivalDateTime}
-                onChange={handleInputChange}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="departureDateTime" className="form-label">Departure Date & Time</label>
-              <input
-                type="datetime-local"
-                id="departureDateTime"
-                name="departureDateTime"
-                value={formData.departureDateTime}
-                onChange={handleInputChange}
-                className="form-input"
-                required
-              />
-            </div>
+          <div className="form-group">
+            <label htmlFor="totalHours" className="form-label">Total Hours</label>
+            <input
+              type="number"
+              id="totalHours"
+              name="totalHours"
+              value={formData.totalHours}
+              onChange={handleInputChange}
+              className="form-input"
+              required
+              min="0.1"
+              step="0.1"
+              placeholder="e.g., 8 or 4.5"
+            />
+            <small className="form-help">Enter the total hours for this task (minimum 0.1)</small>
           </div>
 
           <button
@@ -240,20 +234,13 @@ const TaskCreation = ({ tasks, onUpdate }) => {
                 </div>
 
                 <div className="task-detail">
-                  <div className="task-detail-label">Arrival</div>
-                  <div className="task-detail-value">{formatDateTime(task.arrivalDateTime)}</div>
-                </div>
-
-                <div className="task-detail">
-                  <div className="task-detail-label">Departure</div>
-                  <div className="task-detail-value">{formatDateTime(task.departureDateTime)}</div>
-                </div>
-
-                <div className="task-detail">
                   <div className="task-detail-label">Total Hours</div>
-                  <div className="task-detail-value">
-                    {calculateHours(task.arrivalDateTime, task.departureDateTime)} hours
-                  </div>
+                  <div className="task-detail-value">{task.totalHours} hours</div>
+                </div>
+
+                <div className="task-detail">
+                  <div className="task-detail-label">Hours Spent</div>
+                  <div className="task-detail-value">{task.hoursSpent || 0} hours</div>
                 </div>
               </div>
 

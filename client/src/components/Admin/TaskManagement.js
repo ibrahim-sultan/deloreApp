@@ -139,8 +139,8 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
                 <th>Task</th>
                 <th>Staff Member</th>
                 <th>Location</th>
-                <th>Schedule</th>
-                <th>Hours</th>
+                <th>Total Hours</th>
+                <th>Hours Spent</th>
                 <th>Status</th>
                 <th>Created</th>
               </tr>
@@ -164,20 +164,10 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
                   </td>
                   <td>{task.location}</td>
                   <td>
-                    <div>
-                      <small>
-                        <strong>Arrival:</strong><br />
-                        {formatDateTime(task.arrivalDateTime)}
-                      </small>
-                      <br />
-                      <small>
-                        <strong>Departure:</strong><br />
-                        {formatDateTime(task.departureDateTime)}
-                      </small>
-                    </div>
+                    <strong>{task.totalHours}</strong> hrs
                   </td>
                   <td>
-                    <strong>{task.totalHours}</strong> hrs
+                    <strong>{task.hoursSpent || 0}</strong> hrs
                   </td>
                   <td>
                     <span className={`status-badge status-${task.status}`}>
