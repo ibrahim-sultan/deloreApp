@@ -2,11 +2,50 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Task = require('../models/Task');
 const { auth } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 
+// Ensure uploads directory exists
+const tasksUploadDir = path.join(__dirname, '..', 'uploads', 'tasks');
+if (!fs.existsSync(tasksUploadDir)) {
+  fs.mkdirSync(tasksUploadDir, { recursive: true });
+}
+
+// Configure multer storage for task attachments
+const storage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, tasksUploadDir);
+  },
+  filename: function(req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `task-${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: (req, file, cb) => {
+    // Allow common document types
+    const allowed = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Unsupported file type'));
+  }
+});
+
 // Create task
-router.post('/create', auth, [
+router.post('/create', auth, upload.single('attachment'), [
   body('title').trim().isLength({ min: 1 }).withMessage('Title is required')
     .custom((value) => {
       const hoursMatch = value.match(/\d+(\.\d+)?/);
@@ -30,6 +69,9 @@ router.post('/create', auth, [
     })
 ], async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Attachment is required' });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -52,7 +94,12 @@ router.post('/create', auth, [
       description,
       location,
       totalHours: parseFloat(totalHours),
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      attachmentFilename: req.file.filename,
+      attachmentOriginalName: req.file.originalname,
+      attachmentPath: req.file.path,
+      attachmentSize: req.file.size,
+      attachmentMimeType: req.file.mimetype
     });
 
     await task.save();
