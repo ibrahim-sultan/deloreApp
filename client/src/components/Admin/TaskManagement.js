@@ -70,22 +70,36 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
 
   const handleViewAttachment = async (taskId, originalName) => {
     try {
-      // Create a direct link to the attachment endpoint
-      const attachmentUrl = `/api/admin/tasks/${taskId}/attachment`;
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('token');
+      
+      // Use axios to get the blob with proper authentication
+      const res = await axios.get(`/api/admin/tasks/${taskId}/attachment`, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // Create a blob URL from the response
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
       
       // Open in a new tab
-      const win = window.open(attachmentUrl, '_blank');
+      const win = window.open(url, '_blank');
       
-      // If popup is blocked, create a temporary iframe
+      // If popup is blocked, fallback to download
       if (!win) {
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = attachmentUrl;
-        document.body.appendChild(iframe);
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = originalName || 'attachment';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
       }
+      
+      // Revoke the URL after a delay to allow viewing
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
     } catch (err) {
       console.error('View attachment error:', err);
       alert(err.response?.data?.message || 'Failed to open attachment');
@@ -94,19 +108,31 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
 
   const handleDownloadAttachment = async (taskId, originalName) => {
     try {
-      // Create a direct link to the download endpoint
-      const downloadUrl = `/api/admin/tasks/${taskId}/attachment/download`;
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('token');
       
-      // Create a hidden iframe to trigger the download
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = downloadUrl;
-      document.body.appendChild(iframe);
+      // Use axios to get the blob with proper authentication
+      const res = await axios.get(`/api/admin/tasks/${taskId}/attachment/download`, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
-      // Remove the iframe after a short delay
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
+      // Create a blob URL from the response
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a link element to trigger the download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = originalName || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      // Revoke the URL after download
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download attachment error:', err);
       alert(err.response?.data?.message || 'Failed to download attachment');
