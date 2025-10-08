@@ -405,11 +405,25 @@ router.get('/tasks', adminAuth, async (req, res) => {
 });
 
 // Admin download document
-router.get('/documents/:id/download', adminAuth, async (req, res) => {
+router.get('/documents/:id/download', async (req, res) => {
   const fs = require('fs');
   
   try {
-    console.log(`Admin ${req.user.email} downloading document ${req.params.id}`);
+    // Get token from query parameter for direct access
+    const token = req.query.token;
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    // Verify token manually
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('-password');
+    
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    console.log(`Admin ${user.email} downloading document ${req.params.id}`);
     
     const document = await Document.findById(req.params.id);
 
@@ -586,8 +600,22 @@ router.delete('/documents/:id', adminAuth, async (req, res) => {
 module.exports = router;
  
 // Admin: View task attachment inline
-router.get('/tasks/:id/attachment', adminAuth, async (req, res) => {
+router.get('/tasks/:id/attachment', async (req, res) => {
   try {
+    // Get token from query parameter for direct access
+    const token = req.query.token;
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    // Verify token manually
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('-password');
+    
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
     const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -605,8 +633,22 @@ router.get('/tasks/:id/attachment', adminAuth, async (req, res) => {
 });
 
 // Admin: Download task attachment
-router.get('/tasks/:id/attachment/download', adminAuth, async (req, res) => {
+router.get('/tasks/:id/attachment/download', async (req, res) => {
   try {
+    // Get token from query parameter for direct access
+    const token = req.query.token;
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    // Verify token manually
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('-password');
+    
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
     const task = await Task.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });

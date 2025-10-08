@@ -105,27 +105,16 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       setLoading(true);
       console.log('Attempting to download document:', documentId, filename);
       
-      // Use admin-specific download route
-      const response = await axios.get(`/api/admin/documents/${documentId}/download`, {
-        responseType: 'blob'
-      });
+      // Get the token
+      const token = localStorage.getItem('token');
       
-      // Check if component is still mounted before continuing
-      if (!isMounted.current) return;
+      // Create a direct download link with token in URL
+      window.location.href = `/api/admin/documents/${documentId}/download?token=${token}`;
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
       setError('');
-      console.log('Document downloaded successfully');
+      console.log('Document download initiated');
     } catch (error) {
       console.error('Download error:', error);
-      console.error('Download error response:', error.response);
       if (isMounted.current) {
         const errorMessage = error.response?.data?.message || 'Failed to download document';
         setError(errorMessage);
