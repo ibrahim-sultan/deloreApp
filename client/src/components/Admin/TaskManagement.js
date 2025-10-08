@@ -70,43 +70,45 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
 
   const handleViewAttachment = async (taskId, originalName) => {
     try {
-      const res = await axios.get(`/api/admin/tasks/${taskId}/attachment`, {
-        responseType: 'blob'
-      });
-      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
-      const url = window.URL.createObjectURL(blob);
-      const win = window.open(url, '_blank');
+      // Create a direct link to the attachment endpoint
+      const attachmentUrl = `/api/admin/tasks/${taskId}/attachment`;
+      
+      // Open in a new tab
+      const win = window.open(attachmentUrl, '_blank');
+      
+      // If popup is blocked, create a temporary iframe
       if (!win) {
-        // Popup blocked: fallback to download
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = originalName || 'attachment';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = attachmentUrl;
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
       }
-      // Revoke later to allow viewing
-      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
     } catch (err) {
+      console.error('View attachment error:', err);
       alert(err.response?.data?.message || 'Failed to open attachment');
     }
   };
 
   const handleDownloadAttachment = async (taskId, originalName) => {
     try {
-      const res = await axios.get(`/api/admin/tasks/${taskId}/attachment/download`, {
-        responseType: 'blob'
-      });
-      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = originalName || 'attachment';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      // Create a direct link to the download endpoint
+      const downloadUrl = `/api/admin/tasks/${taskId}/attachment/download`;
+      
+      // Create a hidden iframe to trigger the download
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = downloadUrl;
+      document.body.appendChild(iframe);
+      
+      // Remove the iframe after a short delay
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
     } catch (err) {
+      console.error('Download attachment error:', err);
       alert(err.response?.data?.message || 'Failed to download attachment');
     }
   };
