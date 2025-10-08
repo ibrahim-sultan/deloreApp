@@ -621,8 +621,17 @@ router.get('/tasks/:id/attachment', async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
-    if (!task.attachmentPath || !fs.existsSync(task.attachmentPath)) {
-      return res.status(404).json({ message: 'Attachment not found' });
+    if (!task.attachmentPath) {
+      return res.status(404).json({ message: 'Attachment path not found in task record' });
+    }
+    
+    // Ensure the path is absolute
+    const absolutePath = path.resolve(task.attachmentPath);
+    console.log('Attempting to access attachment at:', absolutePath);
+    
+    if (!fs.existsSync(absolutePath)) {
+      console.error('File does not exist at path:', absolutePath);
+      return res.status(404).json({ message: 'Attachment file not found on server' });
     }
     res.setHeader('Content-Type', task.attachmentMimeType || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="${task.attachmentOriginalName || path.basename(task.attachmentPath)}"`);
@@ -654,8 +663,17 @@ router.get('/tasks/:id/attachment/download', async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
-    if (!task.attachmentPath || !fs.existsSync(task.attachmentPath)) {
-      return res.status(404).json({ message: 'Attachment not found' });
+    if (!task.attachmentPath) {
+      return res.status(404).json({ message: 'Attachment path not found in task record' });
+    }
+    
+    // Ensure the path is absolute
+    const absolutePath = path.resolve(task.attachmentPath);
+    console.log('Attempting to access attachment at:', absolutePath);
+    
+    if (!fs.existsSync(absolutePath)) {
+      console.error('File does not exist at path:', absolutePath);
+      return res.status(404).json({ message: 'Attachment file not found on server' });
     }
     res.download(path.resolve(task.attachmentPath), task.attachmentOriginalName || path.basename(task.attachmentPath));
   } catch (error) {
