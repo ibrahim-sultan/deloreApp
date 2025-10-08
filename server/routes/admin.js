@@ -6,6 +6,8 @@ const Task = require('../models/Task');
 const Payment = require('../models/Payment');
 const Message = require('../models/Message');
 const { adminAuth } = require('../middleware/auth');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 
@@ -582,3 +584,39 @@ router.delete('/documents/:id', adminAuth, async (req, res) => {
 
 
 module.exports = router;
+ 
+// Admin: View task attachment inline
+router.get('/tasks/:id/attachment', adminAuth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    if (!task.attachmentPath || !fs.existsSync(task.attachmentPath)) {
+      return res.status(404).json({ message: 'Attachment not found' });
+    }
+    res.setHeader('Content-Type', task.attachmentMimeType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${task.attachmentOriginalName || path.basename(task.attachmentPath)}"`);
+    res.sendFile(path.resolve(task.attachmentPath));
+  } catch (error) {
+    console.error('Admin view task attachment error:', error);
+    res.status(500).json({ message: 'Server error during attachment view' });
+  }
+});
+
+// Admin: Download task attachment
+router.get('/tasks/:id/attachment/download', adminAuth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+    if (!task.attachmentPath || !fs.existsSync(task.attachmentPath)) {
+      return res.status(404).json({ message: 'Attachment not found' });
+    }
+    res.download(path.resolve(task.attachmentPath), task.attachmentOriginalName || path.basename(task.attachmentPath));
+  } catch (error) {
+    console.error('Admin download task attachment error:', error);
+    res.status(500).json({ message: 'Server error during attachment download' });
+  }
+});

@@ -48,6 +48,26 @@ const taskSchema = new mongoose.Schema({
   hoursSpent: {
     type: Number,
     default: 0
+  },
+  attachmentFilename: {
+    type: String,
+    required: true
+  },
+  attachmentOriginalName: {
+    type: String,
+    required: true
+  },
+  attachmentPath: {
+    type: String,
+    required: true
+  },
+  attachmentSize: {
+    type: Number,
+    required: true
+  },
+  attachmentMimeType: {
+    type: String,
+    required: true
   }
 }, {
   timestamps: true

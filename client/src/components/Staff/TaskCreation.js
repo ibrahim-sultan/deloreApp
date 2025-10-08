@@ -9,6 +9,7 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     location: '',
     totalHours: ''
   });
+  const [attachment, setAttachment] = useState(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -25,6 +26,12 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     setCreating(true);
     setError('');
     setSuccess('');
+
+    if (!attachment) {
+      setError('Attachment is required');
+      setCreating(false);
+      return;
+    }
 
     // Validate total hours
     const hours = parseFloat(formData.totalHours);
@@ -49,7 +56,16 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     }
 
     try {
-      await axios.post('/api/tasks/create', formData);
+      const data = new FormData();
+      data.append('title', formData.title);
+      data.append('description', formData.description);
+      data.append('location', formData.location);
+      data.append('totalHours', formData.totalHours);
+      data.append('attachment', attachment);
+
+      await axios.post('/api/tasks/create', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       setSuccess('Task created successfully!');
       setFormData({
         title: '',
@@ -57,6 +73,7 @@ const TaskCreation = ({ tasks, onUpdate }) => {
         location: '',
         totalHours: ''
       });
+      setAttachment(null);
       setShowTaskForm(false);
       onUpdate();
     } catch (error) {
@@ -178,6 +195,20 @@ const TaskCreation = ({ tasks, onUpdate }) => {
               placeholder="e.g., 8 or 4.5"
             />
             <small className="form-help">Enter the total hours for this task (minimum 0.1)</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="attachment" className="form-label">Attachment (required)</label>
+            <input
+              type="file"
+              id="attachment"
+              name="attachment"
+              className="form-input"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              onChange={(e) => setAttachment(e.target.files?.[0] || null)}
+              required
+            />
+            <small className="form-help">Upload related document (PDF, DOC/DOCX, JPG/PNG)</small>
           </div>
 
           <button

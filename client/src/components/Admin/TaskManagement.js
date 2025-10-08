@@ -142,6 +142,7 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
                 <th>Total Hours</th>
                 <th>Hours Spent</th>
                 <th>Status</th>
+                <th>Attachment</th>
                 <th>Created</th>
               </tr>
             </thead>
@@ -150,31 +151,51 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
                 <tr key={task._id}>
                   <td>
                     <div>
-                      <strong>{task.title}</strong>
+                      <strong>{task?.title || 'Untitled task'}</strong>
                       <br />
-                      <small>{task.description.substring(0, 50)}...</small>
+                      <small>{(task?.description ? String(task.description).substring(0, 50) : 'No description') + '...'}</small>
                     </div>
                   </td>
                   <td>
                     <div>
-                      <strong>{task.createdBy?.name}</strong>
+                      <strong>{task?.createdBy?.name || 'Unknown'}</strong>
                       <br />
-                      <small>{task.createdBy?.email}</small>
+                      <small>{task?.createdBy?.email || ''}</small>
                     </div>
                   </td>
-                  <td>{task.location}</td>
+                  <td>{task?.location || '-'}</td>
                   <td>
-                    <strong>{task.totalHours}</strong> hrs
+                    <strong>{task?.totalHours ?? 0}</strong> hrs
                   </td>
                   <td>
-                    <strong>{task.hoursSpent || 0}</strong> hrs
+                    <strong>{task?.hoursSpent || 0}</strong> hrs
                   </td>
                   <td>
-                    <span className={`status-badge status-${task.status}`}>
-                      {task.status.replace('-', ' ')}
+                    <span className={`status-badge status-${task?.status || 'pending'}`}>
+                      {(task?.status || 'pending').replace('-', ' ')}
                     </span>
                   </td>
-                  <td>{formatDate(task.createdAt)}</td>
+                  <td>
+                    {task?.attachmentFilename ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <a
+                          href={`/api/admin/tasks/${task._id}/attachment`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View
+                        </a>
+                        <a
+                          href={`/api/admin/tasks/${task._id}/attachment/download`}
+                        >
+                          Download
+                        </a>
+                      </div>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </td>
+                  <td>{task?.createdAt ? formatDate(task.createdAt) : '-'}</td>
                 </tr>
               ))}
             </tbody>
