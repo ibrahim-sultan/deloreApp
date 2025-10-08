@@ -88,7 +88,13 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
       // Revoke later to allow viewing
       setTimeout(() => window.URL.revokeObjectURL(url), 10000);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to open attachment');
+      console.error('View attachment error:', err);
+      const errorMsg = err.response?.data?.message || 
+                      (err.response?.status === 404 ? 'Attachment file not found on server' : 
+                       err.response?.status === 401 ? 'Authentication required' :
+                       err.response?.status === 403 ? 'Access denied' :
+                       'Failed to open attachment');
+      alert(errorMsg);
     }
   };
 
@@ -107,7 +113,13 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to download attachment');
+      console.error('Download attachment error:', err);
+      const errorMsg = err.response?.data?.message || 
+                      (err.response?.status === 404 ? 'Attachment file not found on server' : 
+                       err.response?.status === 401 ? 'Authentication required' :
+                       err.response?.status === 403 ? 'Access denied' :
+                       'Failed to download attachment');
+      alert(errorMsg);
     }
   };
 

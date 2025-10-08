@@ -582,9 +582,6 @@ router.delete('/documents/:id', adminAuth, async (req, res) => {
   }
 });
 
-
-module.exports = router;
- 
 // Admin: View task attachment inline
 router.get('/tasks/:id/attachment', adminAuth, async (req, res) => {
   try {
@@ -620,3 +617,5 @@ router.get('/tasks/:id/attachment/download', adminAuth, async (req, res) => {
     res.status(500).json({ message: 'Server error during attachment download' });
   }
 });
+
+module.exports = router;
