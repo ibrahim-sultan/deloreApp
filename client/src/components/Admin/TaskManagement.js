@@ -68,6 +68,49 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
   const uniqueStaff = getUniqueStaff();
   const stats = getTaskStats();
 
+  const handleViewAttachment = async (taskId, originalName) => {
+    try {
+      const res = await axios.get(`/api/admin/tasks/${taskId}/attachment`, {
+        responseType: 'blob'
+      });
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (!win) {
+        // Popup blocked: fallback to download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = originalName || 'attachment';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      // Revoke later to allow viewing
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to open attachment');
+    }
+  };
+
+  const handleDownloadAttachment = async (taskId, originalName) => {
+    try {
+      const res = await axios.get(`/api/admin/tasks/${taskId}/attachment/download`, {
+        responseType: 'blob'
+      });
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = originalName || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to download attachment');
+    }
+  };
+
   return (
     <div className="management-section">
       <div className="management-header">
@@ -178,18 +221,18 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
                   <td>
                     {task?.attachmentFilename ? (
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <a
-                          href={`/api/admin/tasks/${task._id}/attachment`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          className="btn btn-small"
+                          onClick={() => handleViewAttachment(task._id, task.attachmentOriginalName)}
                         >
                           View
-                        </a>
-                        <a
-                          href={`/api/admin/tasks/${task._id}/attachment/download`}
+                        </button>
+                        <button
+                          className="btn btn-small"
+                          onClick={() => handleDownloadAttachment(task._id, task.attachmentOriginalName)}
                         >
                           Download
-                        </a>
+                        </button>
                       </div>
                     ) : (
                       <span>-</span>
