@@ -9,6 +9,7 @@ import TaskManagement from './TaskManagement';
 import PaymentManagement from './PaymentManagement';
 import MessageManagement from './MessageManagement';
 import LoadingSpinner from '../Common/LoadingSpinner';
+import ErrorBoundary from '../Common/ErrorBoundary';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -104,6 +105,7 @@ const AdminDashboard = () => {
   }
 
   return (
+    <ErrorBoundary>
     <div className="page-container">
       <div className="page-header">
         <h1 className="page-title">Admin Dashboard</h1>
@@ -220,6 +222,7 @@ const AdminDashboard = () => {
         </Routes>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 
