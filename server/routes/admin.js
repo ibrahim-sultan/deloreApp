@@ -585,13 +585,34 @@ router.delete('/documents/:id', adminAuth, async (req, res) => {
 // Admin: View task attachment inline
 router.get('/tasks/:id/attachment', adminAuth, async (req, res) => {
   try {
+    console.log('Admin view attachment request for task:', req.params.id);
     const task = await Task.findById(req.params.id);
     if (!task) {
+      console.log('Task not found:', req.params.id);
       return res.status(404).json({ message: 'Task not found' });
     }
-    if (!task.attachmentPath || !fs.existsSync(task.attachmentPath)) {
-      return res.status(404).json({ message: 'Attachment not found' });
+    console.log('Task found:', {
+      id: task._id,
+      title: task.title,
+      attachmentPath: task.attachmentPath,
+      attachmentFilename: task.attachmentFilename,
+      attachmentOriginalName: task.attachmentOriginalName
+    });
+    
+    if (!task.attachmentPath) {
+      console.log('No attachment path for task:', task._id);
+      return res.status(404).json({ message: 'No attachment path found' });
     }
+    
+    const fs = require('fs');
+    const path = require('path');
+    const fileExists = fs.existsSync(task.attachmentPath);
+    console.log('File exists check:', { path: task.attachmentPath, exists: fileExists });
+    
+    if (!fileExists) {
+      return res.status(404).json({ message: 'Attachment file not found on server' });
+    }
+    
     res.setHeader('Content-Type', task.attachmentMimeType || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="${task.attachmentOriginalName || path.basename(task.attachmentPath)}"`);
     res.sendFile(path.resolve(task.attachmentPath));
@@ -604,13 +625,34 @@ router.get('/tasks/:id/attachment', adminAuth, async (req, res) => {
 // Admin: Download task attachment
 router.get('/tasks/:id/attachment/download', adminAuth, async (req, res) => {
   try {
+    console.log('Admin download attachment request for task:', req.params.id);
     const task = await Task.findById(req.params.id);
     if (!task) {
+      console.log('Task not found:', req.params.id);
       return res.status(404).json({ message: 'Task not found' });
     }
-    if (!task.attachmentPath || !fs.existsSync(task.attachmentPath)) {
-      return res.status(404).json({ message: 'Attachment not found' });
+    console.log('Task found:', {
+      id: task._id,
+      title: task.title,
+      attachmentPath: task.attachmentPath,
+      attachmentFilename: task.attachmentFilename,
+      attachmentOriginalName: task.attachmentOriginalName
+    });
+    
+    if (!task.attachmentPath) {
+      console.log('No attachment path for task:', task._id);
+      return res.status(404).json({ message: 'No attachment path found' });
     }
+    
+    const fs = require('fs');
+    const path = require('path');
+    const fileExists = fs.existsSync(task.attachmentPath);
+    console.log('File exists check:', { path: task.attachmentPath, exists: fileExists });
+    
+    if (!fileExists) {
+      return res.status(404).json({ message: 'Attachment file not found on server' });
+    }
+    
     res.download(path.resolve(task.attachmentPath), task.attachmentOriginalName || path.basename(task.attachmentPath));
   } catch (error) {
     console.error('Admin download task attachment error:', error);
