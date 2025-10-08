@@ -35,7 +35,7 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
     if (selectedStaff === 'all') {
       return allTasks;
     }
-    return allTasks.filter(task => task.createdBy._id === selectedStaff);
+    return allTasks.filter(task => task?.createdBy && task.createdBy._id === selectedStaff);
   };
 
   const getUniqueStaff = () => {
@@ -82,7 +82,7 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
             <option value="all">All Staff ({allTasks.length} tasks)</option>
             {uniqueStaff.map(staff => (
               <option key={staff._id} value={staff._id}>
-                {staff.name} ({allTasks.filter(task => task.createdBy._id === staff._id).length})
+                {staff.name} ({allTasks.filter(task => task?.createdBy && task.createdBy._id === staff._id).length})
               </option>
             ))}
           </select>
