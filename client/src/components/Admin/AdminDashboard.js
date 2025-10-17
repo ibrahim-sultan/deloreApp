@@ -61,20 +61,42 @@ const AdminDashboard = () => {
       setError(''); // Clear any previous errors
     } catch (error) {
       console.error('Error fetching admin dashboard data:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url
+      });
       
       let errorMessage = 'Something went wrong while rendering this page.';
+      let errorDetails = '';
+      
       if (error.response?.status === 401) {
         errorMessage = 'Unauthorized access. Please login again.';
         // Force logout on auth error
         localStorage.removeItem('token');
         window.location.href = '/login';
+        return;
       } else if (error.response?.status === 403) {
         errorMessage = 'Access denied. Admin privileges required.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error occurred while loading dashboard.';
+        errorDetails = error.response?.data?.error || error.message;
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+        errorDetails = error.response.data.error || '';
+      } else if (error.message) {
+        errorMessage = 'Network or connection error';
+        errorDetails = error.message;
       }
       
-      setError(errorMessage);
+      // Show detailed error in development or for debugging
+      const fullErrorMessage = errorDetails ? 
+        `${errorMessage}\n\nDetails: ${errorDetails}\nStatus: ${error.response?.status || 'Unknown'}\nURL: ${error.config?.url || '/api/admin/dashboard'}` :
+        errorMessage;
+      
+      setError(fullErrorMessage);
       setDashboardData(null);
     } finally {
       setLoading(false);
@@ -111,7 +133,28 @@ const AdminDashboard = () => {
     return (
       <div className="page-container">
         <div className="alert alert-error">
-          {error}
+          <h3>Dashboard Load Error</h3>
+          <pre style={{whiteSpace: 'pre-wrap', fontSize: '14px', marginTop: '10px'}}>
+            {error}
+          </pre>
+          <div style={{marginTop: '15px'}}>
+            <button 
+              onClick={() => {
+                setError('');
+                fetchDashboardData();
+              }}
+              style={{
+                padding: '10px 20px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Retry Loading Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );

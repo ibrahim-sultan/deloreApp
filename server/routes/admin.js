@@ -13,6 +13,43 @@ const nodemailer = require('nodemailer');
 
 const router = express.Router();
 
+// Simple test endpoint to check if basic functionality works
+router.get('/dashboard-test', adminAuth, async (req, res) => {
+  try {
+    console.log('Test endpoint called by:', req.user?.email);
+    
+    // Just return basic info without any database queries
+    const response = {
+      message: 'Test endpoint working',
+      user: {
+        id: req.user._id,
+        email: req.user.email,
+        role: req.user.role
+      },
+      timestamp: new Date().toISOString(),
+      statistics: {
+        totalStaff: 0,
+        totalDocuments: 0,
+        totalTasks: 0,
+        totalPayments: 0,
+        activeStaff: 0
+      },
+      staffMembers: [],
+      documentsByStaff: [],
+      tasksByStaff: [],
+      recentDocuments: [],
+      recentTasks: [],
+      recentPayments: []
+    };
+    
+    console.log('Test endpoint response:', response.message);
+    res.json(response);
+  } catch (error) {
+    console.error('Test endpoint error:', error);
+    res.status(500).json({ message: 'Test endpoint error', error: error.message });
+  }
+});
+
 // Admin dashboard endpoint - get overview statistics
 router.get('/dashboard', adminAuth, async (req, res) => {
   try {

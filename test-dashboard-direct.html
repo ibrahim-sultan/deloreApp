@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Dashboard Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Direct Dashboard Test</h1>
+    <div class="info">
+        <strong>Purpose:</strong> Test the admin dashboard endpoint directly to see the exact error.
+    </div>
+
+    <!-- Login Section -->
+    <div style="border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 4px;">
+        <h3>Step 1: Login</h3>
+        <input type="text" id="email" placeholder="Admin Email" value="admin@delore.com">
+        <input type="password" id="password" placeholder="Admin Password" value="admin123">
+        <button onclick="login()">Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <!-- Test Section -->
+    <div style="border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 4px;">
+        <h3>Step 2: Test Endpoints</h3>
+        <button onclick="testDashboard()" id="dashboardBtn" disabled>Test Main Dashboard</button>
+        <button onclick="testDashboardSimple()" id="testBtn" disabled>Test Simple Version</button>
+        <div id="testResult"></div>
+    </div>
+
+    <script>
+        // Your production URL
+        const BASE_URL = 'https://deloreapp.onrender.com';
+        axios.defaults.baseURL = BASE_URL;
+
+        let token = null;
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('loginResult');
+
+            try {
+                console.log('Logging in...');
+                const response = await axios.post('/api/auth/login', { email, password });
+                token = response.data.token;
+                
+                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                
+                document.getElementById('dashboardBtn').disabled = false;
+                document.getElementById('testBtn').disabled = false;
+
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Login successful!
+                        <br>User: ${response.data.user.name}
+                        <br>Role: ${response.data.user.role}
+                        <br>Token: ${token.substring(0, 30)}...
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Login failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Login failed: ${error.response?.data?.message || error.message}
+                        <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testDashboard() {
+            const resultDiv = document.getElementById('testResult');
+            
+            try {
+                console.log('Testing main dashboard endpoint...');
+                console.log('Auth header:', axios.defaults.headers.common['Authorization']);
+                
+                const response = await axios.get('/api/admin/dashboard');
+                console.log('Dashboard response:', response.data);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Main dashboard endpoint working!
+                        <br>Statistics: ${JSON.stringify(response.data.statistics)}
+                    </div>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Dashboard test failed:', error);
+                
+                const errorDetails = {
+                    message: error.message,
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    data: error.response?.data,
+                    url: error.config?.url
+                };
+                
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Main dashboard endpoint failed!
+                        <br><strong>This is the exact error your admin dashboard is seeing:</strong>
+                        <br><br>
+                        <strong>Error Message:</strong> ${error.message}
+                        <br><strong>Status:</strong> ${error.response?.status || 'No status'}
+                        <br><strong>Status Text:</strong> ${error.response?.statusText || 'No status text'}
+                        <br><strong>URL:</strong> ${BASE_URL}/api/admin/dashboard
+                    </div>
+                    <h4>Full Error Details:</h4>
+                    <pre>${JSON.stringify(errorDetails, null, 2)}</pre>
+                    
+                    ${error.response?.data ? `
+                    <h4>Server Response:</h4>
+                    <pre>${JSON.stringify(error.response.data, null, 2)}</pre>
+                    ` : ''}
+                `;
+            }
+        }
+
+        async function testDashboardSimple() {
+            const resultDiv = document.getElementById('testResult');
+            
+            try {
+                console.log('Testing simple dashboard test endpoint...');
+                
+                const response = await axios.get('/api/admin/dashboard-test');
+                console.log('Simple test response:', response.data);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Simple test endpoint working!
+                        <br>Message: ${response.data.message}
+                        <br>User: ${response.data.user.email}
+                    </div>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Simple test failed:', error);
+                
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Even the simple test endpoint failed!
+                        <br>This suggests a fundamental issue with the server or authentication.
+                        <br><br>
+                        <strong>Error:</strong> ${error.message}
+                        <br><strong>Status:</strong> ${error.response?.status}
+                    </div>
+                    <pre>${JSON.stringify({
+                        message: error.message,
+                        status: error.response?.status,
+                        data: error.response?.data
+                    }, null, 2)}</pre>
+                `;
+            }
+        }
+
+        // Auto-populate if running locally
+        if (window.location.hostname === 'localhost') {
+            axios.defaults.baseURL = 'http://localhost:5000';
+        }
+
+        console.log('Dashboard test tool loaded');
+        console.log('Target URL:', axios.defaults.baseURL);
+    </script>
+</body>
+</html>
