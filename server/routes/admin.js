@@ -16,139 +16,228 @@ const router = express.Router();
 // Admin dashboard endpoint - get overview statistics
 router.get('/dashboard', adminAuth, async (req, res) => {
   try {
-    // Get counts for each data type
-    const [staffCount, documentCount, taskCount, paymentCount] = await Promise.all([
-      User.countDocuments({ role: 'staff' }),
-      Document.countDocuments(),
-      Task.countDocuments(),
-      Payment.countDocuments()
-    ]);
+    console.log('Admin dashboard endpoint called');
+    console.log('User:', req.user?.email, 'Role:', req.user?.role);
 
-    // Get recent data for each type
-    const [recentStaff, recentDocuments, recentTasks, recentPayments] = await Promise.all([
-      User.find({ role: 'staff' })
+    // Initialize default values
+    let statistics = {
+      totalStaff: 0,
+      totalDocuments: 0,
+      totalTasks: 0,
+      totalPayments: 0,
+      activeStaff: 0
+    };
+    
+    let staffMembers = [];
+    let documentsByStaff = [];
+    let tasksByStaff = [];
+    let recentDocuments = [];
+    let recentTasks = [];
+    let recentPayments = [];
+
+    // Get counts for each data type with error handling
+    try {
+      const [staffCount, documentCount, taskCount, paymentCount] = await Promise.all([
+        User.countDocuments({ role: 'staff' }).catch(() => 0),
+        Document.countDocuments().catch(() => 0),
+        Task.countDocuments().catch(() => 0),
+        Payment.countDocuments().catch(() => 0)
+      ]);
+      
+      statistics = {
+        totalStaff: staffCount || 0,
+        totalDocuments: documentCount || 0,
+        totalTasks: taskCount || 0,
+        totalPayments: paymentCount || 0,
+        activeStaff: 0 // Will be calculated below
+      };
+      
+      console.log('Statistics calculated:', statistics);
+    } catch (error) {
+      console.error('Error getting counts:', error);
+    }
+
+    // Get recent data for each type with individual error handling
+    try {
+      staffMembers = await User.find({ role: 'staff' })
         .select('name email isActive createdAt')
         .sort({ createdAt: -1 })
-        .limit(10),
-      Document.find()
+        .limit(10)
+        .lean() // Use lean for better performance
+        .catch(() => []);
+      
+      statistics.activeStaff = staffMembers.filter(staff => staff.isActive).length;
+      console.log('Staff members found:', staffMembers.length);
+    } catch (error) {
+      console.error('Error getting staff:', error);
+    }
+
+    try {
+      recentDocuments = await Document.find()
         .populate('uploadedBy', 'name email')
         .sort({ createdAt: -1 })
-        .limit(10),
-      Task.find()
+        .limit(10)
+        .lean()
+        .catch(() => []);
+      
+      console.log('Recent documents found:', recentDocuments.length);
+    } catch (error) {
+      console.error('Error getting documents:', error);
+    }
+
+    try {
+      recentTasks = await Task.find()
         .populate('assignedTo', 'name email')
         .populate('createdBy', 'name email')
         .sort({ createdAt: -1 })
-        .limit(10),
-      Payment.find()
+        .limit(10)
+        .lean()
+        .catch(() => []);
+      
+      console.log('Recent tasks found:', recentTasks.length);
+    } catch (error) {
+      console.error('Error getting tasks:', error);
+    }
+
+    try {
+      recentPayments = await Payment.find()
         .populate('staffMember', 'name email')
         .populate('uploadedBy', 'name email')
         .sort({ createdAt: -1 })
         .limit(10)
-    ]);
+        .lean()
+        .catch(() => []);
+      
+      console.log('Recent payments found:', recentPayments.length);
+    } catch (error) {
+      console.error('Error getting payments:', error);
+    }
 
-    // Group documents by staff
-    const documentsByStaff = await Document.aggregate([
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'uploadedBy',
-          foreignField: '_id',
-          as: 'staff'
-        }
-      },
-      {
-        $unwind: '$staff'
-      },
-      {
-        $group: {
-          _id: '$uploadedBy',
-          staffName: { $first: '$staff.name' },
-          staffEmail: { $first: '$staff.email' },
-          documents: {
-            $push: {
-              id: '$_id',
-              title: '$title',
-              filename: '$filename',
-              expiryDate: '$expiryDate',
-              isExpired: '$isExpired',
-              createdAt: '$createdAt'
+    // Only run aggregations if we have data
+    if (statistics.totalDocuments > 0) {
+      try {
+        documentsByStaff = await Document.aggregate([
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'uploadedBy',
+              foreignField: '_id',
+              as: 'staff'
             }
           },
-          documentCount: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { documentCount: -1 }
-      }
-    ]);
-
-    // Group tasks by staff
-    const tasksByStaff = await Task.aggregate([
-      {
-        $match: { assignedTo: { $exists: true } }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'assignedTo',
-          foreignField: '_id',
-          as: 'staff'
-        }
-      },
-      {
-        $unwind: '$staff'
-      },
-      {
-        $group: {
-          _id: '$assignedTo',
-          staffName: { $first: '$staff.name' },
-          staffEmail: { $first: '$staff.email' },
-          tasks: {
-            $push: {
-              id: '$_id',
-              title: '$title',
-              status: '$status',
-              location: '$location',
-              scheduledStartTime: '$scheduledStartTime',
-              scheduledEndTime: '$scheduledEndTime',
-              totalHours: '$totalHours',
-              hoursSpent: '$hoursSpent',
-              createdAt: '$createdAt'
+          {
+            $unwind: {
+              path: '$staff',
+              preserveNullAndEmptyArrays: true
             }
           },
-          taskCount: { $sum: 1 },
-          completedTasks: {
-            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+          {
+            $group: {
+              _id: '$uploadedBy',
+              staffName: { $first: '$staff.name' },
+              staffEmail: { $first: '$staff.email' },
+              documents: {
+                $push: {
+                  id: '$_id',
+                  title: '$title',
+                  filename: '$filename',
+                  expiryDate: '$expiryDate',
+                  isExpired: '$isExpired',
+                  createdAt: '$createdAt'
+                }
+              },
+              documentCount: { $sum: 1 }
+            }
           },
-          totalHoursSpent: { $sum: '$hoursSpent' }
-        }
-      },
-      {
-        $sort: { taskCount: -1 }
+          {
+            $sort: { documentCount: -1 }
+          }
+        ]);
+        
+        console.log('Documents by staff aggregated:', documentsByStaff.length);
+      } catch (error) {
+        console.error('Error aggregating documents by staff:', error);
       }
-    ]);
+    }
 
-    // Statistics object
-    const statistics = {
-      totalStaff: staffCount,
-      totalDocuments: documentCount,
-      totalTasks: taskCount,
-      totalPayments: paymentCount,
-      activeStaff: recentStaff.filter(staff => staff.isActive).length
+    // Only run task aggregation if we have tasks
+    if (statistics.totalTasks > 0) {
+      try {
+        tasksByStaff = await Task.aggregate([
+          {
+            $match: { assignedTo: { $exists: true, $ne: null } }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'assignedTo',
+              foreignField: '_id',
+              as: 'staff'
+            }
+          },
+          {
+            $unwind: {
+              path: '$staff',
+              preserveNullAndEmptyArrays: true
+            }
+          },
+          {
+            $group: {
+              _id: '$assignedTo',
+              staffName: { $first: '$staff.name' },
+              staffEmail: { $first: '$staff.email' },
+              tasks: {
+                $push: {
+                  id: '$_id',
+                  title: '$title',
+                  status: '$status',
+                  location: '$location',
+                  scheduledStartTime: '$scheduledStartTime',
+                  scheduledEndTime: '$scheduledEndTime',
+                  totalHours: '$totalHours',
+                  hoursSpent: { $ifNull: ['$hoursSpent', 0] },
+                  createdAt: '$createdAt'
+                }
+              },
+              taskCount: { $sum: 1 },
+              completedTasks: {
+                $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+              },
+              totalHoursSpent: { $sum: { $ifNull: ['$hoursSpent', 0] } }
+            }
+          },
+          {
+            $sort: { taskCount: -1 }
+          }
+        ]);
+        
+        console.log('Tasks by staff aggregated:', tasksByStaff.length);
+      } catch (error) {
+        console.error('Error aggregating tasks by staff:', error);
+      }
+    }
+
+    const response = {
+      statistics,
+      staffMembers: staffMembers || [],
+      documentsByStaff: documentsByStaff || [],
+      tasksByStaff: tasksByStaff || [],
+      recentDocuments: recentDocuments || [],
+      recentTasks: recentTasks || [],
+      recentPayments: recentPayments || []
     };
 
-    res.json({
-      statistics,
-      staffMembers: recentStaff,
-      documentsByStaff,
-      tasksByStaff,
-      recentDocuments,
-      recentTasks,
-      recentPayments
-    });
+    console.log('Dashboard response prepared successfully');
+    res.json(response);
+    
   } catch (error) {
     console.error('Error fetching admin dashboard data:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Server error while loading dashboard', 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
