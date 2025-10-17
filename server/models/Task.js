@@ -40,34 +40,96 @@ const taskSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false // Only required for admin-created tasks
+  },
   status: {
     type: String,
-    enum: ['pending', 'in-progress', 'completed', 'cancelled'],
+    enum: ['pending', 'assigned', 'in-progress', 'completed', 'cancelled'],
     default: 'pending'
   },
   hoursSpent: {
     type: Number,
     default: 0
   },
+  // Admin task scheduling fields
+  scheduledStartTime: {
+    type: Date,
+    required: false
+  },
+  scheduledEndTime: {
+    type: Date,
+    required: false
+  },
+  // Time tracking fields
+  clockInTime: {
+    type: Date,
+    required: false
+  },
+  clockOutTime: {
+    type: Date,
+    required: false
+  },
+  // Location and contact fields for admin tasks
+  coordinates: {
+    latitude: {
+      type: Number,
+      required: false
+    },
+    longitude: {
+      type: Number,
+      required: false
+    }
+  },
+  contactPerson: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  // Work summary and admin override tracking
+  workSummary: {
+    type: String,
+    trim: true
+  },
+  adminOverride: {
+    clockIn: {
+      type: Boolean,
+      default: false
+    },
+    clockOut: {
+      type: Boolean,
+      default: false
+    },
+    reason: {
+      type: String,
+      trim: true
+    }
+  },
+  notificationSent: {
+    type: Boolean,
+    default: false
+  },
   attachmentFilename: {
     type: String,
-    required: true
+    required: false // Optional for backward compatibility
   },
   attachmentOriginalName: {
     type: String,
-    required: true
+    required: false
   },
   attachmentPath: {
     type: String,
-    required: true
+    required: false
   },
   attachmentSize: {
     type: Number,
-    required: true
+    required: false
   },
   attachmentMimeType: {
     type: String,
-    required: true
+    required: false
   }
 }, {
   timestamps: true

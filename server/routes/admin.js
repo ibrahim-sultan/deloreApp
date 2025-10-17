@@ -2,6 +2,9 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Task = require('../models/Task');
 const User = require('../models/User');
+const Document = require('../models/Document');
+const Payment = require('../models/Payment');
+const Message = require('../models/Message');
 const { adminAuth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -9,6 +12,145 @@ const fs = require('fs');
 const nodemailer = require('nodemailer');
 
 const router = express.Router();
+
+// Admin dashboard endpoint - get overview statistics
+router.get('/dashboard', adminAuth, async (req, res) => {
+  try {
+    // Get counts for each data type
+    const [staffCount, documentCount, taskCount, paymentCount] = await Promise.all([
+      User.countDocuments({ role: 'staff' }),
+      Document.countDocuments(),
+      Task.countDocuments(),
+      Payment.countDocuments()
+    ]);
+
+    // Get recent data for each type
+    const [recentStaff, recentDocuments, recentTasks, recentPayments] = await Promise.all([
+      User.find({ role: 'staff' })
+        .select('name email isActive createdAt')
+        .sort({ createdAt: -1 })
+        .limit(10),
+      Document.find()
+        .populate('uploadedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(10),
+      Task.find()
+        .populate('assignedTo', 'name email')
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(10),
+      Payment.find()
+        .populate('staffMember', 'name email')
+        .populate('uploadedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(10)
+    ]);
+
+    // Group documents by staff
+    const documentsByStaff = await Document.aggregate([
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'uploadedBy',
+          foreignField: '_id',
+          as: 'staff'
+        }
+      },
+      {
+        $unwind: '$staff'
+      },
+      {
+        $group: {
+          _id: '$uploadedBy',
+          staffName: { $first: '$staff.name' },
+          staffEmail: { $first: '$staff.email' },
+          documents: {
+            $push: {
+              id: '$_id',
+              title: '$title',
+              filename: '$filename',
+              expiryDate: '$expiryDate',
+              isExpired: '$isExpired',
+              createdAt: '$createdAt'
+            }
+          },
+          documentCount: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { documentCount: -1 }
+      }
+    ]);
+
+    // Group tasks by staff
+    const tasksByStaff = await Task.aggregate([
+      {
+        $match: { assignedTo: { $exists: true } }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedTo',
+          foreignField: '_id',
+          as: 'staff'
+        }
+      },
+      {
+        $unwind: '$staff'
+      },
+      {
+        $group: {
+          _id: '$assignedTo',
+          staffName: { $first: '$staff.name' },
+          staffEmail: { $first: '$staff.email' },
+          tasks: {
+            $push: {
+              id: '$_id',
+              title: '$title',
+              status: '$status',
+              location: '$location',
+              scheduledStartTime: '$scheduledStartTime',
+              scheduledEndTime: '$scheduledEndTime',
+              totalHours: '$totalHours',
+              hoursSpent: '$hoursSpent',
+              createdAt: '$createdAt'
+            }
+          },
+          taskCount: { $sum: 1 },
+          completedTasks: {
+            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+          },
+          totalHoursSpent: { $sum: '$hoursSpent' }
+        }
+      },
+      {
+        $sort: { taskCount: -1 }
+      }
+    ]);
+
+    // Statistics object
+    const statistics = {
+      totalStaff: staffCount,
+      totalDocuments: documentCount,
+      totalTasks: taskCount,
+      totalPayments: paymentCount,
+      activeStaff: recentStaff.filter(staff => staff.isActive).length
+    };
+
+    res.json({
+      statistics,
+      staffMembers: recentStaff,
+      documentsByStaff,
+      tasksByStaff,
+      recentDocuments,
+      recentTasks,
+      recentPayments
+    });
+  } catch (error) {
+    console.error('Error fetching admin dashboard data:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 // Ensure uploads directory exists
 const mapsUploadDir = path.join(__dirname, '..', 'uploads', 'maps');
