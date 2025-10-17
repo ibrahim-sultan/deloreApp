@@ -26,10 +26,14 @@ const AdminDashboard = () => {
       console.log('Authentication confirmed, fetching dashboard data...');
       console.log('Current axios auth header:', axios.defaults.headers.common['Authorization']);
       
-      // Small delay to ensure axios headers are fully set
-      setTimeout(() => {
-        fetchDashboardData();
-      }, 50);
+      // Ensure axios has the auth token set
+      const token = localStorage.getItem('token');
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // Fetch dashboard data immediately
+      fetchDashboardData();
     } else if (!authLoading && !isAuthenticated) {
       console.log('User not authenticated in AdminDashboard');
       setError('Authentication required');
@@ -41,21 +45,29 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       console.log('Fetching admin dashboard data...');
-      console.log('Auth token present:', !!localStorage.getItem('token'));
+      
+      // Ensure token is set in axios headers
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('Auth token set in headers');
       
       const response = await axios.get('/api/admin/dashboard');
-      console.log('Dashboard data fetched successfully:', response.data);
+      console.log('Dashboard data fetched successfully');
       setDashboardData(response.data);
       setError(''); // Clear any previous errors
     } catch (error) {
       console.error('Error fetching admin dashboard data:', error);
-      console.error('Error response:', error.response);
-      console.error('Error status:', error.response?.status);
-      console.error('Error data:', error.response?.data);
       
-      let errorMessage = 'Failed to load dashboard data';
+      let errorMessage = 'Something went wrong while rendering this page.';
       if (error.response?.status === 401) {
         errorMessage = 'Unauthorized access. Please login again.';
+        // Force logout on auth error
+        localStorage.removeItem('token');
+        window.location.href = '/login';
       } else if (error.response?.status === 403) {
         errorMessage = 'Access denied. Admin privileges required.';
       } else if (error.response?.data?.message) {
@@ -63,6 +75,7 @@ const AdminDashboard = () => {
       }
       
       setError(errorMessage);
+      setDashboardData(null);
     } finally {
       setLoading(false);
     }

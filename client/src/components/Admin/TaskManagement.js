@@ -8,8 +8,13 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
   const [selectedStaff, setSelectedStaff] = useState('all');
 
   useEffect(() => {
-    fetchAllTasks();
-  }, []);
+    if (tasksByStaff && tasksByStaff.length > 0) {
+      setAllTasks(tasksByStaff);
+      setLoading(false);
+    } else {
+      fetchAllTasks();
+    }
+  }, [tasksByStaff]);
 
   const fetchAllTasks = async () => {
     try {
