@@ -56,9 +56,7 @@ const AdminDashboard = () => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       console.log('Auth token set in headers');
       
-      // EMERGENCY BYPASS: Use test endpoint until main one is fixed
-      console.log('Using emergency bypass - test endpoint');
-      const response = await axios.get('/api/admin/dashboard-test');
+      const response = await axios.get('/api/admin/dashboard');
       console.log('Dashboard data fetched successfully');
       setDashboardData(response.data);
       setError(''); // Clear any previous errors
@@ -227,7 +225,7 @@ const AdminDashboard = () => {
           <Route 
             path="/" 
             element={
-              <EmergencyAdminOverview 
+              <AdminOverview 
                 data={dashboardData} 
                 onUpdate={handleDataUpdate} 
               />
