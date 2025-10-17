@@ -6,6 +6,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import StaffDashboard from './components/Staff/StaffDashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
+import TokenTest from './components/Admin/TokenTest';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import './App.css';
 
@@ -76,6 +77,12 @@ function AppContent() {
             <Route path="/admin/*" element={
               <ProtectedRoute adminOnly={true}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/test-token" element={
+              <ProtectedRoute adminOnly={true}>
+                <TokenTest />
               </ProtectedRoute>
             } />
             

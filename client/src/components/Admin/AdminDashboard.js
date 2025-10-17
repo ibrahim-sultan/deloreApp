@@ -22,24 +22,46 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Only fetch data when authentication is confirmed
-    if (!authLoading && isAuthenticated && user) {
-      console.log('Authentication confirmed, fetching dashboard data...');
-      console.log('Current axios auth header:', axios.defaults.headers.common['Authorization']);
-      
-      // Ensure axios has the auth token set
-      const token = localStorage.getItem('token');
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      }
-      
-      // Fetch dashboard data immediately
-      fetchDashboardData();
-    } else if (!authLoading && !isAuthenticated) {
-      console.log('User not authenticated in AdminDashboard');
+    console.log('AdminDashboard useEffect:', { authLoading, isAuthenticated, user: user?.email });
+    
+    // Wait for auth to be determined
+    if (authLoading) {
+      console.log('Still checking authentication...');
+      return;
+    }
+    
+    // Check if user is authenticated and is admin
+    if (!isAuthenticated || !user) {
+      console.log('User not authenticated, redirecting to login');
       setError('Authentication required');
       setLoading(false);
+      window.location.href = '/login';
+      return;
     }
+    
+    // Check if user has admin role
+    if (user.role !== 'admin') {
+      console.log('User is not admin:', user.role);
+      setError('Admin access required');
+      setLoading(false);
+      return;
+    }
+    
+    // Check if we have a token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      setError('Session expired - please login again');
+      setLoading(false);
+      window.location.href = '/login';
+      return;
+    }
+    
+    console.log('Authentication confirmed for admin:', user.email);
+    console.log('Token present, fetching dashboard data...');
+    
+    // Everything looks good, fetch dashboard data
+    fetchDashboardData();
   }, [authLoading, isAuthenticated, user]);
 
   const fetchDashboardData = async () => {
@@ -47,16 +69,28 @@ const AdminDashboard = () => {
       setLoading(true);
       console.log('Fetching admin dashboard data...');
       
-      // Ensure token is set in axios headers
+      // Get fresh token from localStorage
       const token = localStorage.getItem('token');
+      console.log('Token from localStorage:', token ? 'Present' : 'Missing');
+      
       if (!token) {
-        throw new Error('Authentication token not found');
+        console.error('No authentication token found');
+        setError('Please login again - session expired');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
       }
       
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      console.log('Auth token set in headers');
+      // Set token in axios headers for this request
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
       
-      const response = await axios.get('/api/admin/dashboard');
+      console.log('Making request with headers:', headers);
+      console.log('Request URL: /api/admin/dashboard');
+      
+      const response = await axios.get('/api/admin/dashboard', { headers });
       console.log('Dashboard data fetched successfully');
       setDashboardData(response.data);
       setError(''); // Clear any previous errors
