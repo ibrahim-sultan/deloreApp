@@ -1,683 +1,433 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
-const Document = require('../models/Document');
 const Task = require('../models/Task');
-const Payment = require('../models/Payment');
-const Message = require('../models/Message');
+const User = require('../models/User');
 const { adminAuth } = require('../middleware/auth');
+const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 const router = express.Router();
 
-// Get dashboard statistics
-router.get('/dashboard', adminAuth, async (req, res) => {
-  try {
-    // Get total documents uploaded by staff
-    const totalDocuments = await Document.countDocuments();
-    
-    // Get documents by staff member
-    const documentsByStaff = await Document.aggregate([
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'uploadedBy',
-          foreignField: '_id',
-          as: 'staff'
-        }
-      },
-      {
-        $unwind: '$staff'
-      },
-      {
-        $group: {
-          _id: '$staff._id',
-          staffName: { $first: '$staff.name' },
-          staffEmail: { $first: '$staff.email' },
-          documentCount: { $sum: 1 },
-          documents: {
-            $push: {
-              id: '$_id',
-              title: '$title',
-              originalName: '$originalName',
-              expiryDate: '$expiryDate',
-              uploadedAt: '$createdAt'
-            }
-          }
-        }
-      },
-      {
-        $sort: { documentCount: -1 }
-      }
-    ]);
+// Ensure uploads directory exists
+const mapsUploadDir = path.join(__dirname, '..', 'uploads', 'maps');
+if (!fs.existsSync(mapsUploadDir)) {
+  fs.mkdirSync(mapsUploadDir, { recursive: true });
+}
 
-    // Get tasks by staff member with hours
-    const tasksByStaff = await Task.aggregate([
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'createdBy',
-          foreignField: '_id',
-          as: 'staff'
-        }
-      },
-      {
-        $unwind: '$staff'
-      },
-      {
-        $group: {
-          _id: '$staff._id',
-          staffName: { $first: '$staff.name' },
-          staffEmail: { $first: '$staff.email' },
-          taskCount: { $sum: 1 },
-          totalHoursWorked: { $sum: '$totalHours' },
-          tasks: {
-            $push: {
-              id: '$_id',
-              title: '$title',
-              description: '$description',
-              location: '$location',
-              status: '$status',
-              totalHours: '$totalHours',
-              createdAt: '$createdAt'
-            }
-          }
-        }
-      },
-      {
-        $sort: { totalHoursWorked: -1 }
-      }
-    ]);
-
-    // Get all staff members
-    const staffMembers = await User.find({ role: 'staff' })
-      .select('name email isActive createdAt')
-      .sort({ name: 1 });
-
-    // Get recent activities
-    const recentDocuments = await Document.find()
-      .populate('uploadedBy', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('title originalName uploadedBy createdAt');
-
-    const recentTasks = await Task.find()
-      .populate('createdBy', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('title location createdBy createdAt');
-
-    res.json({
-      statistics: {
-        totalDocuments,
-        totalStaff: staffMembers.length,
-        totalTasks: await Task.countDocuments(),
-        totalPayments: await Payment.countDocuments()
-      },
-      documentsByStaff,
-      tasksByStaff,
-      staffMembers,
-      recentActivities: {
-        documents: recentDocuments,
-        tasks: recentTasks
-      }
-    });
-  } catch (error) {
-    console.error('Get dashboard error:', error);
-    res.status(500).json({ message: 'Server error' });
+// Configure multer storage for map attachments
+const mapStorage = multer.diskStorage({
+  destination: function(req, file, cb) {
+    cb(null, mapsUploadDir);
+  },
+  filename: function(req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `map-${uniqueSuffix}${ext}`);
   }
 });
 
-// Create new staff member with temporary password (Admin only)
-router.post('/staff', [
-  body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-  body('email').isEmail().withMessage('Please enter a valid email'),
-  body('temporaryPassword').isLength({ min: 6 }).withMessage('Temporary password must be at least 6 characters')
-], adminAuth, async (req, res) => {
+const mapUpload = multer({
+  storage: mapStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    // Allow only image and PDF files
+    const allowed = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Only images and PDF files are allowed'));
+  }
+});
+
+// Create and assign task to staff
+router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
+  body('title').trim().isLength({ min: 1 }).withMessage('Title is required')
+    .custom((value) => {
+      const hoursMatch = value.match(/\d+(\.\d+)?/);
+      if (!hoursMatch) {
+        throw new Error('Title must include total hours as numbers (e.g., "Task Name 8" or "Project Work 4.5")');
+      }
+      return true;
+    }),
+  body('description').trim().isLength({ min: 1 }).withMessage('Description is required'),
+  body('location').trim().isLength({ min: 1 }).withMessage('Location is required'),
+  body('latitude').isNumeric().withMessage('Latitude must be a number'),
+  body('longitude').isNumeric().withMessage('Longitude must be a number'),
+  body('contactPerson').trim().isLength({ min: 1 }).withMessage('Contact person is required'),
+  body('scheduledStartTime').isISO8601().withMessage('Valid start time is required'),
+  body('scheduledEndTime').isISO8601().withMessage('Valid end time is required')
+    .custom((value, { req }) => {
+      if (new Date(value) <= new Date(req.body.scheduledStartTime)) {
+        throw new Error('End time must be after start time');
+      }
+      return true;
+    }),
+  body('totalHours').isNumeric().withMessage('Total hours must be a number')
+    .custom((value) => {
+      const hours = parseFloat(value);
+      if (hours <= 0) {
+        throw new Error('Total hours must be greater than 0');
+      }
+      if (hours < 0.1) {
+        throw new Error('Total hours must be at least 0.1');
+      }
+      return true;
+    }),
+  body('staffId').isMongoId().withMessage('Valid staff ID is required')
+], async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Map attachment is required' });
+    }
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { 
+      title, 
+      description, 
+      location, 
+      latitude, 
+      longitude, 
+      contactPerson,
+      scheduledStartTime, 
+      scheduledEndTime, 
+      totalHours,
+      staffId 
+    } = req.body;
+
+    // Verify staff exists
+    const staff = await User.findOne({ _id: staffId, role: 'staff' });
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff not found' });
+    }
+
+    // Create task
+    const task = new Task({
+      title,
+      description,
+      location,
+      coordinates: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude)
+      },
+      contactPerson,
+      scheduledStartTime,
+      scheduledEndTime,
+      totalHours: parseFloat(totalHours),
+      createdBy: req.user._id,
+      assignedTo: staffId,
+      status: 'assigned',
+      attachmentFilename: req.file.filename,
+      attachmentOriginalName: req.file.originalname,
+      attachmentPath: req.file.path,
+      attachmentSize: req.file.size,
+      attachmentMimeType: req.file.mimetype
+    });
+
+    await task.save();
+
+    // Send email notification to staff
+    try {
+      // Create a transporter
+      const transporter = nodemailer.createTransport({
+        // Use environment variables in production
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER || 'your-email@gmail.com',
+          pass: process.env.EMAIL_PASS || 'your-password'
+        }
+      });
+
+      // Email content
+      const mailOptions = {
+        from: process.env.EMAIL_USER || 'your-email@gmail.com',
+        to: staff.email,
+        subject: `New Task Assignment: ${title}`,
+        html: `
+          <h2>You have been assigned a new task</h2>
+          <p><strong>Title:</strong> ${title}</p>
+          <p><strong>Description:</strong> ${description}</p>
+          <p><strong>Location:</strong> ${location}</p>
+          <p><strong>Contact Person:</strong> ${contactPerson}</p>
+          <p><strong>Start Time:</strong> ${new Date(scheduledStartTime).toLocaleString()}</p>
+          <p><strong>End Time:</strong> ${new Date(scheduledEndTime).toLocaleString()}</p>
+          <p>Please log in to your portal to view more details and clock in when you arrive at the location.</p>
+        `
+      };
+
+      // Send email
+      await transporter.sendMail(mailOptions);
+      
+      // Update notification status
+      task.notificationSent = true;
+      await task.save();
+    } catch (emailError) {
+      console.error('Email notification failed:', emailError);
+      // Continue even if email fails
+    }
+
+    res.status(201).json({ 
+      message: 'Task assigned successfully', 
+      task: {
+        id: task._id,
+        title: task.title,
+        assignedTo: staff.name,
+        scheduledStartTime: task.scheduledStartTime,
+        scheduledEndTime: task.scheduledEndTime
+      }
+    });
+  } catch (error) {
+    console.error('Error assigning task:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all assigned tasks with staff details
+router.get('/assigned-tasks', adminAuth, async (req, res) => {
+  try {
+    const tasks = await Task.find({ status: { $in: ['assigned', 'in-progress', 'completed'] } })
+      .populate('assignedTo', 'name email')
+      .sort({ scheduledStartTime: -1 });
+    
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error fetching assigned tasks:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get staff task reports
+router.get('/staff-reports', adminAuth, async (req, res) => {
+  try {
+    // Get all completed tasks with staff details
+    const tasks = await Task.find({ 
+      status: 'completed',
+      assignedTo: { $exists: true }
+    })
+    .populate('assignedTo', 'name email')
+    .sort({ clockOutTime: -1 });
+    
+    // Group tasks by staff member
+    const staffReports = {};
+    
+    tasks.forEach(task => {
+      const staffId = task.assignedTo._id.toString();
+      const staffName = task.assignedTo.name;
+      
+      if (!staffReports[staffId]) {
+        staffReports[staffId] = {
+          staffId,
+          staffName,
+          email: task.assignedTo.email,
+          totalTasks: 0,
+          totalHoursSpent: 0,
+          tasks: []
+        };
+      }
+      
+      staffReports[staffId].totalTasks += 1;
+      staffReports[staffId].totalHoursSpent += task.hoursSpent || 0;
+      
+      staffReports[staffId].tasks.push({
+        taskId: task._id,
+        title: task.title,
+        location: task.location,
+        scheduledStartTime: task.scheduledStartTime,
+        scheduledEndTime: task.scheduledEndTime,
+        clockInTime: task.clockInTime,
+        clockOutTime: task.clockOutTime,
+        hoursSpent: task.hoursSpent,
+        workSummary: task.workSummary
+      });
+    });
+    
+    res.json(Object.values(staffReports));
+  } catch (error) {
+    console.error('Error generating staff reports:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get detailed report for a specific staff member
+router.get('/staff-report/:staffId', adminAuth, async (req, res) => {
+  try {
+    const staffId = req.params.staffId;
+    
+    // Verify staff exists
+    const staff = await User.findOne({ _id: staffId, role: 'staff' });
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+    
+    // Get all tasks for this staff member
+    const tasks = await Task.find({ assignedTo: staffId })
+      .sort({ scheduledStartTime: -1 });
+    
+    // Calculate statistics
+    const completedTasks = tasks.filter(task => task.status === 'completed');
+    const inProgressTasks = tasks.filter(task => task.status === 'in-progress');
+    const assignedTasks = tasks.filter(task => task.status === 'assigned');
+    
+    const totalHoursSpent = completedTasks.reduce((sum, task) => sum + (task.hoursSpent || 0), 0);
+    const totalScheduledHours = tasks.reduce((sum, task) => sum + (task.totalHours || 0), 0);
+    
+    // Calculate on-time performance
+    const onTimeClockIns = completedTasks.filter(task => {
+      if (!task.clockInTime || !task.scheduledStartTime) return false;
+      
+      const clockIn = new Date(task.clockInTime);
+      const scheduled = new Date(task.scheduledStartTime);
+      const diffMinutes = Math.abs((clockIn - scheduled) / (1000 * 60));
+      
+      return diffMinutes <= 15; // Within 15 minutes of scheduled time
+    }).length;
+    
+    const onTimePercentage = completedTasks.length > 0 
+      ? Math.round((onTimeClockIns / completedTasks.length) * 100) 
+      : 0;
+    
+    res.json({
+      staffId,
+      name: staff.name,
+      email: staff.email,
+      statistics: {
+        totalTasks: tasks.length,
+        completedTasks: completedTasks.length,
+        inProgressTasks: inProgressTasks.length,
+        assignedTasks: assignedTasks.length,
+        totalHoursSpent,
+        totalScheduledHours,
+        onTimePerformance: onTimePercentage
+      },
+      tasks: tasks.map(task => ({
+        id: task._id,
+        title: task.title,
+        status: task.status,
+        location: task.location,
+        contactPerson: task.contactPerson,
+        scheduledStartTime: task.scheduledStartTime,
+        scheduledEndTime: task.scheduledEndTime,
+        clockInTime: task.clockInTime,
+        clockOutTime: task.clockOutTime,
+        hoursSpent: task.hoursSpent,
+        totalHours: task.totalHours,
+        workSummary: task.workSummary,
+        adminOverride: task.adminOverride
+      }))
+    });
+  } catch (error) {
+    console.error('Error generating staff report:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin override for clock-in
+router.post('/override-clock-in/:taskId', adminAuth, [
+  body('reason').trim().isLength({ min: 1 }).withMessage('Reason is required')
+], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, temporaryPassword } = req.body;
+    const { taskId } = req.params;
+    const { reason } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
     }
 
-    // Create new staff user with temporary password
-    const user = new User({
-      name,
-      email,
-      password: temporaryPassword,
-      role: 'staff',
-      isTemporaryPassword: true,
-      temporaryPasswordExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      isActive: true
-    });
-
-    await user.save();
-
-    res.status(201).json({
-      message: 'Staff member created successfully with temporary password',
-      staff: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        isTemporaryPassword: user.isTemporaryPassword
-      },
-      temporaryCredentials: {
-        email: user.email,
-        temporaryPassword: temporaryPassword
-      }
-    });
-  } catch (error) {
-    console.error('Create staff error:', error);
-    
-    // Handle specific error types
-    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
-      if (error.code === 11000) {
-        return res.status(400).json({ message: 'User already exists with this email' });
-      }
-      return res.status(500).json({ message: 'Database error during staff creation' });
-    } else if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: 'Validation error: ' + error.message });
-    }
-    
-    res.status(500).json({ message: 'Server error during staff creation: ' + error.message });
-  }
-});
-
-// Get all staff members
-router.get('/staff', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.find({ role: 'staff' })
-      .select('name email isActive isTemporaryPassword temporaryPasswordExpiry createdAt')
-      .sort({ name: 1 });
-
-    res.json({ staff });
-  } catch (error) {
-    console.error('Get staff error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get staff member details with their documents and tasks
-router.get('/staff/:id', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.findById(req.params.id).select('-password');
-    
-    if (!staff || staff.role !== 'staff') {
-      return res.status(404).json({ message: 'Staff member not found' });
+    if (task.clockInTime) {
+      return res.status(400).json({ message: 'Task already clocked in' });
     }
 
-    const documents = await Document.find({ uploadedBy: req.params.id })
-      .sort({ createdAt: -1 })
-      .select('-filePath');
+    // Update task with admin override
+    task.clockInTime = new Date();
+    task.status = 'in-progress';
+    task.adminOverride.clockIn = true;
+    task.adminOverride.reason = reason;
 
-    const tasks = await Task.find({ createdBy: req.params.id })
-      .sort({ createdAt: -1 });
-
-    const payments = await Payment.find({ staffMember: req.params.id })
-      .populate('uploadedBy', 'name')
-      .sort({ paymentDate: -1 })
-      .select('-receiptPath');
-
-    // Calculate total hours worked
-    const totalHours = tasks.reduce((sum, task) => {
-      return sum + (task.totalHours || 0);
-    }, 0);
-
-    res.json({
-      staff: {
-        ...staff.toObject(),
-        totalDocuments: documents.length,
-        totalTasks: tasks.length,
-        totalHours: Math.round(totalHours * 100) / 100,
-        totalPayments: payments.length
-      },
-      documents,
-      tasks: tasks.map(task => ({
-        ...task.toObject()
-      })),
-      payments
-    });
-  } catch (error) {
-    console.error('Get staff details error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Toggle staff active status
-router.put('/staff/:id/toggle-status', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.findById(req.params.id);
-    
-    if (!staff || staff.role !== 'staff') {
-      return res.status(404).json({ message: 'Staff member not found' });
-    }
-
-    staff.isActive = !staff.isActive;
-    await staff.save();
-
-    res.json({
-      message: `Staff member ${staff.isActive ? 'activated' : 'deactivated'} successfully`,
-      staff: {
-        id: staff._id,
-        name: staff.name,
-        email: staff.email,
-        isActive: staff.isActive
-      }
-    });
-  } catch (error) {
-    console.error('Toggle staff status error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Delete staff member (Admin only)
-router.delete('/staff/:id', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.findById(req.params.id);
-    
-    if (!staff || staff.role !== 'staff') {
-      return res.status(404).json({ message: 'Staff member not found' });
-    }
-
-    // Check if staff member has associated data
-    const documentCount = await Document.countDocuments({ uploadedBy: req.params.id });
-    const taskCount = await Task.countDocuments({ createdBy: req.params.id });
-    const paymentCount = await Payment.countDocuments({ staffMember: req.params.id });
-    
-    // Optional: You can choose to prevent deletion if staff has associated data
-    // or allow deletion and handle orphaned data
-    if (documentCount > 0 || taskCount > 0 || paymentCount > 0) {
-      // For safety, we'll prevent deletion if there's associated data
-      return res.status(400).json({ 
-        message: `Cannot delete staff member. They have ${documentCount} documents, ${taskCount} tasks, and ${paymentCount} payments associated with their account. Please transfer or remove this data first.`,
-        hasAssociatedData: true,
-        associatedData: {
-          documents: documentCount,
-          tasks: taskCount,
-          payments: paymentCount
-        }
-      });
-    }
-
-    // Delete the staff member
-    await User.findByIdAndDelete(req.params.id);
-
-    res.json({
-      message: 'Staff member deleted successfully',
-      deletedStaff: {
-        id: staff._id,
-        name: staff.name,
-        email: staff.email
-      }
-    });
-  } catch (error) {
-    console.error('Delete staff error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get expired documents count (test endpoint)
-router.get('/documents/expired/count', adminAuth, async (req, res) => {
-  try {
-    const now = new Date();
-    const expiredCount = await Document.countDocuments({
-      expiryDate: { $lt: now }
-    });
-    
-    const expiredDocuments = await Document.find({
-      expiryDate: { $lt: now }
-    }).populate('uploadedBy', 'name email').select('title expiryDate');
-    
-    console.log(`Found ${expiredCount} expired documents`);
-    expiredDocuments.forEach(doc => {
-      console.log(`- ${doc.title} (expired: ${doc.expiryDate})`);
-    });
-    
-    res.json({ 
-      expiredCount, 
-      currentTime: now,
-      expiredDocuments: expiredDocuments.map(doc => ({
-        id: doc._id,
-        title: doc.title,
-        expiryDate: doc.expiryDate,
-        uploadedBy: doc.uploadedBy?.name || 'Unknown'
-      }))
-    });
-  } catch (error) {
-    console.error('Get expired documents count error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get all documents with staff info
-router.get('/documents', adminAuth, async (req, res) => {
-  try {
-    console.log('Fetching all documents for admin...');
-    
-    const documents = await Document.find()
-      .populate('uploadedBy', 'name email')
-      .sort({ createdAt: -1 })
-      .select('-filePath');
-
-    console.log(`Found ${documents.length} documents`);
-    
-    // Filter out documents without valid uploadedBy reference and log them
-    const validDocuments = documents.filter(doc => {
-      if (!doc.uploadedBy) {
-        console.warn(`Document ${doc._id} has no uploadedBy reference`);
-        return false;
-      }
-      return true;
-    });
-    
-    console.log(`${validDocuments.length} documents have valid uploadedBy references`);
-
-    res.json({ documents: validDocuments });
-  } catch (error) {
-    console.error('Get all documents error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get all tasks with staff info
-router.get('/tasks', adminAuth, async (req, res) => {
-  try {
-    const tasks = await Task.find()
-      .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.json({ tasks });
-  } catch (error) {
-    console.error('Get all tasks error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Admin download document
-router.get('/documents/:id/download', async (req, res) => {
-  const fs = require('fs');
-  
-  try {
-    // Get token from query parameter for direct access
-    const token = req.query.token;
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-    
-    // Verify token manually
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
-    
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    console.log(`Admin ${user.email} downloading document ${req.params.id}`);
-    
-    const document = await Document.findById(req.params.id);
-
-    if (!document) {
-      console.log('Document not found');
-      return res.status(404).json({ message: 'Document not found' });
-    }
-
-    console.log('Document found:', {
-      id: document._id,
-      title: document.title,
-      filePath: document.filePath,
-      originalName: document.originalName
-    });
-
-    if (!document.filePath || !fs.existsSync(document.filePath)) {
-      console.log('File not found on filesystem:', document.filePath);
-      return res.status(404).json({ message: 'File not found on server' });
-    }
-
-    console.log('Sending file for download');
-    res.download(document.filePath, document.originalName);
-  } catch (error) {
-    console.error('Admin download document error:', error);
-    res.status(500).json({ message: 'Server error during download: ' + error.message });
-  }
-});
-
-// Bulk delete expired documents (must come before :id route)
-router.delete('/documents/expired/bulk', adminAuth, async (req, res) => {
-  const fs = require('fs');
-  
-  try {
-    console.log(`Admin ${req.user.email} deleting all expired documents`);
-    
-    const now = new Date();
-    
-    // Find all expired documents
-    const expiredDocuments = await Document.find({
-      expiryDate: { $lt: now }
-    });
-    
-    console.log(`Found ${expiredDocuments.length} expired documents`);
-    
-    if (expiredDocuments.length === 0) {
-      return res.json({ message: 'No expired documents found', deletedCount: 0 });
-    }
-    
-    let filesDeleted = 0;
-    let documentsDeleted = 0;
-    const errors = [];
-    
-    // Delete each expired document
-    for (const document of expiredDocuments) {
-      try {
-        // Delete file from filesystem
-        if (document.filePath && fs.existsSync(document.filePath)) {
-          fs.unlinkSync(document.filePath);
-          filesDeleted++;
-          console.log(`Deleted file: ${document.filePath}`);
-        }
-        
-        // Delete from database
-        await Document.findByIdAndDelete(document._id);
-        documentsDeleted++;
-        console.log(`Deleted document: ${document.title}`);
-        
-      } catch (error) {
-        console.error(`Error deleting document ${document._id}:`, error);
-        errors.push({ documentId: document._id, error: error.message });
-      }
-    }
-    
-    console.log(`Bulk deletion complete: ${documentsDeleted} documents deleted, ${filesDeleted} files deleted`);
-    
-    res.json({
-      message: `Successfully deleted ${documentsDeleted} expired documents`,
-      deletedCount: documentsDeleted,
-      filesDeleted: filesDeleted,
-      errors: errors.length > 0 ? errors : undefined
-    });
-    
-  } catch (error) {
-    console.error('Bulk delete expired documents error:', error);
-    res.status(500).json({ message: 'Server error during bulk deletion: ' + error.message });
-  }
-});
-
-// Admin delete document
-router.delete('/documents/:id', adminAuth, async (req, res) => {
-  const fs = require('fs');
-  
-  try {
-    console.log(`Admin ${req.user.email} deleting document ${req.params.id}`);
-    
-    const document = await Document.findById(req.params.id);
-
-    if (!document) {
-      console.log('Document not found');
-      return res.status(404).json({ message: 'Document not found' });
-    }
-
-    // Check if document is expired
-    const now = new Date();
-    const isExpired = now > document.expiryDate;
-    
-    console.log('Document found for deletion:', {
-      id: document._id,
-      title: document.title,
-      filePath: document.filePath,
-      expiryDate: document.expiryDate,
-      isExpired: isExpired,
-      currentDate: now
-    });
-
-    // Admin can delete any document, including expired ones
-    console.log('Admin has full deletion privileges');
-
-    // Delete file from filesystem
-    let fileDeleted = false;
-    try {
-      if (document.filePath && fs.existsSync(document.filePath)) {
-        console.log('Deleting file from filesystem:', document.filePath);
-        fs.unlinkSync(document.filePath);
-        fileDeleted = true;
-        console.log('File deleted from filesystem successfully');
-      } else {
-        console.log('File not found on filesystem, continuing with database deletion');
-      }
-    } catch (fileError) {
-      console.error('Error deleting file from filesystem:', fileError);
-      console.log('Continuing with database deletion despite file error');
-      // Continue with document deletion even if file deletion fails
-    }
-
-    // Delete document from database
-    console.log('Attempting to delete document from database...');
-    const deletedDoc = await Document.findByIdAndDelete(req.params.id);
-    
-    if (!deletedDoc) {
-      console.error('Document was not found in database during deletion');
-      return res.status(404).json({ message: 'Document not found during deletion' });
-    }
-    
-    console.log('Document deleted successfully from database');
+    await task.save();
 
     res.json({ 
-      message: 'Document deleted successfully',
-      details: {
-        documentId: req.params.id,
-        title: document.title,
-        wasExpired: isExpired,
-        fileDeleted: fileDeleted
+      message: 'Admin override clock-in successful', 
+      task: {
+        id: task._id,
+        title: task.title,
+        clockInTime: task.clockInTime
       }
     });
   } catch (error) {
-    console.error('Admin delete document error:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    
-    let errorMessage = 'Server error during deletion';
-    if (error.name === 'CastError') {
-      errorMessage = 'Invalid document ID format';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    res.status(500).json({ message: errorMessage });
+    console.error('Error in admin override clock-in:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
+// Admin override for clock-out
+router.post('/override-clock-out/:taskId', adminAuth, [
+  body('reason').trim().isLength({ min: 1 }).withMessage('Reason is required'),
+  body('workSummary').trim().isLength({ min: 1 }).withMessage('Work summary is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { taskId } = req.params;
+    const { reason, workSummary } = req.body;
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    if (!task.clockInTime) {
+      return res.status(400).json({ message: 'Task has not been clocked in yet' });
+    }
+
+    if (task.clockOutTime) {
+      return res.status(400).json({ message: 'Task already clocked out' });
+    }
+
+    // Update task with admin override
+    task.clockOutTime = new Date();
+    task.status = 'completed';
+    task.adminOverride.clockOut = true;
+    task.adminOverride.reason += `\nClock-out reason: ${reason}`;
+    task.workSummary = workSummary;
+
+    // Calculate hours spent
+    const clockInTime = new Date(task.clockInTime);
+    const clockOutTime = new Date(task.clockOutTime);
+    const hoursSpent = (clockOutTime - clockInTime) / (1000 * 60 * 60);
+    task.hoursSpent = parseFloat(hoursSpent.toFixed(2));
+
+    await task.save();
+
+    res.json({ 
+      message: 'Admin override clock-out successful', 
+      task: {
+        id: task._id,
+        title: task.title,
+        clockOutTime: task.clockOutTime,
+        hoursSpent: task.hoursSpent
+      }
+    });
+  } catch (error) {
+    console.error('Error in admin override clock-out:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 module.exports = router;
- 
-// Admin: View task attachment inline
-router.get('/tasks/:id/attachment', async (req, res) => {
-  try {
-    // Get token from query parameter for direct access
-    const token = req.query.token;
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-    
-    // Verify token manually
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
-    
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    const task = await Task.findById(req.params.id);
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-    if (!task.attachmentPath) {
-      return res.status(404).json({ message: 'Attachment path not found in task record' });
-    }
-    
-    // Ensure the path is absolute
-    const absolutePath = path.resolve(task.attachmentPath);
-    console.log('Attempting to access attachment at:', absolutePath);
-    
-    if (!fs.existsSync(absolutePath)) {
-      console.error('File does not exist at path:', absolutePath);
-      return res.status(404).json({ message: 'Attachment file not found on server' });
-    }
-    res.setHeader('Content-Type', task.attachmentMimeType || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${task.attachmentOriginalName || path.basename(task.attachmentPath)}"`);
-    res.sendFile(path.resolve(task.attachmentPath));
-  } catch (error) {
-    console.error('Admin view task attachment error:', error);
-    res.status(500).json({ message: 'Server error during attachment view' });
-  }
-});
-
-// Admin: Download task attachment
-router.get('/tasks/:id/attachment/download', async (req, res) => {
-  try {
-    // Get token from query parameter for direct access
-    const token = req.query.token;
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-    
-    // Verify token manually
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
-    
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    const task = await Task.findById(req.params.id);
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-    if (!task.attachmentPath) {
-      return res.status(404).json({ message: 'Attachment path not found in task record' });
-    }
-    
-    // Ensure the path is absolute
-    const absolutePath = path.resolve(task.attachmentPath);
-    console.log('Attempting to access attachment at:', absolutePath);
-    
-    if (!fs.existsSync(absolutePath)) {
-      console.error('File does not exist at path:', absolutePath);
-      return res.status(404).json({ message: 'Attachment file not found on server' });
-    }
-    res.download(path.resolve(task.attachmentPath), task.attachmentOriginalName || path.basename(task.attachmentPath));
-  } catch (error) {
-    console.error('Admin download task attachment error:', error);
-    res.status(500).json({ message: 'Server error during attachment download' });
-  }
-});

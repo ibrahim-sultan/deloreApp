@@ -70,11 +70,32 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
 
   const handleViewAttachment = async (taskId, originalName) => {
     try {
+      // Create an iframe to load the attachment with authentication
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      
       // Get the token
       const token = localStorage.getItem('token');
       
-      // Navigate directly to the attachment URL with token
-      window.location.href = `/api/admin/tasks/${taskId}/attachment?token=${token}`;
+      // Set the source with token in query parameter
+      iframe.src = `/api/admin/tasks/${taskId}/attachment?token=${token}`;
+      
+      // Append to body and remove after loading
+      document.body.appendChild(iframe);
+      
+      // Open in a new window after iframe loads
+      iframe.onload = () => {
+        window.open(iframe.src, '_blank');
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      };
+      
+      // Handle errors
+      iframe.onerror = () => {
+        document.body.removeChild(iframe);
+        alert('Failed to open attachment. Please try again.');
+      };
     } catch (err) {
       console.error('View attachment error:', err);
       alert('Failed to open attachment. Please try again.');
@@ -83,11 +104,23 @@ const TaskManagement = ({ tasksByStaff, onUpdate }) => {
 
   const handleDownloadAttachment = async (taskId, originalName) => {
     try {
+      // Create an iframe to trigger the download with authentication
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      
       // Get the token
       const token = localStorage.getItem('token');
       
-      // Navigate directly to download URL with token
-      window.location.href = `/api/admin/tasks/${taskId}/attachment/download?token=${token}`;
+      // Set the source with token in query parameter
+      iframe.src = `/api/admin/tasks/${taskId}/attachment/download?token=${token}`;
+      
+      // Append to body and remove after loading
+      document.body.appendChild(iframe);
+      
+      // Remove after a delay
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 5000);
     } catch (err) {
       console.error('Download attachment error:', err);
       alert('Failed to download attachment. Please try again.');
