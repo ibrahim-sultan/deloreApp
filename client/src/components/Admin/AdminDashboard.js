@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import AdminOverview from './AdminOverview';
+import EmergencyAdminOverview from './EmergencyAdminOverview';
 import StaffManagement from './StaffManagement';
 import DocumentManagement from './DocumentManagement';
 import TaskManagement from './TaskManagement';
@@ -55,7 +56,9 @@ const AdminDashboard = () => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       console.log('Auth token set in headers');
       
-      const response = await axios.get('/api/admin/dashboard');
+      // EMERGENCY BYPASS: Use test endpoint until main one is fixed
+      console.log('Using emergency bypass - test endpoint');
+      const response = await axios.get('/api/admin/dashboard-test');
       console.log('Dashboard data fetched successfully');
       setDashboardData(response.data);
       setError(''); // Clear any previous errors
@@ -224,7 +227,7 @@ const AdminDashboard = () => {
           <Route 
             path="/" 
             element={
-              <AdminOverview 
+              <EmergencyAdminOverview 
                 data={dashboardData} 
                 onUpdate={handleDataUpdate} 
               />
