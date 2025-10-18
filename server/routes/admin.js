@@ -189,8 +189,10 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       staffMembers,
       documentsByStaff,
       tasksByStaff,
-      recentDocuments,
-      recentTasks,
+      recentActivities: {
+        documents: recentDocuments,
+        tasks: recentTasks
+      },
       recentPayments
     };
 

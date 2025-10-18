@@ -88,9 +88,9 @@ const AdminDashboard = () => {
       };
       
       console.log('Making request with headers:', headers);
-      console.log('Request URL: /api/admin/dashboard');
+      console.log('Request URL: /api/admin/dashboard-test');
       
-      const response = await axios.get('/api/admin/dashboard', { headers });
+      const response = await axios.get('/api/admin/dashboard-test', { headers });
       console.log('Dashboard data fetched successfully');
       setDashboardData(response.data);
       setError(''); // Clear any previous errors
@@ -259,7 +259,7 @@ const AdminDashboard = () => {
           <Route 
             path="/" 
             element={
-              <AdminOverview 
+              <EmergencyAdminOverview 
                 data={dashboardData} 
                 onUpdate={handleDataUpdate} 
               />
