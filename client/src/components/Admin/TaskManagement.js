@@ -120,24 +120,25 @@ const TaskManagement = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTasks.map(task => (
+                task && task.assignedTo && task.client &&
                 <tr key={task._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-semibold text-gray-800">{task?.title || 'Untitled task'}</div>
-                    <div className="text-sm text-gray-500">{task?.location || 'No location'}</div>
+                    <div className="font-semibold text-gray-800">{task.title || 'Untitled task'}</div>
+                    <div className="text-sm text-gray-500">{task.location || 'No location'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.assignedTo?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.client?.name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task.assignedTo.name || 'Unknown'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task.client.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
                       ${task.status === 'completed' ? 'bg-green-100 text-green-800' : 
                          task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' : 
                          'bg-gray-200 text-gray-800'}`}>
-                      {task?.status?.replace('-', ' ') || 'pending'}
+                      {task.status.replace('-', ' ') || 'pending'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <div>Start: {task?.scheduledStartTime ? formatDate(task.scheduledStartTime) : '-'}</div>
-                    <div>End: {task?.scheduledEndTime ? formatDate(task.scheduledEndTime) : '-'}</div>
+                    <div>Start: {task.scheduledStartTime ? formatDate(task.scheduledStartTime) : '-'}</div>
+                    <div>End: {task.scheduledEndTime ? formatDate(task.scheduledEndTime) : '-'}</div>
                   </td>
                 </tr>
               ))}

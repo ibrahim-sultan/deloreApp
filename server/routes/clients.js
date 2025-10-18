@@ -67,7 +67,7 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(404).json({ msg: 'Client not found.' });
         }
 
-        await client.remove();
+        await Client.findByIdAndDelete(req.params.id);
         res.json({ msg: 'Client removed' });
 
     } catch (err) {
