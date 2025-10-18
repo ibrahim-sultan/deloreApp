@@ -22,33 +22,43 @@ const TaskManagement = () => {
             axios.get('/api/clients', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
         ]);
 
+        // Helper to safely extract array from API response, which might be nested in an object.
+        const extractArray = (response, primaryKey) => {
+            if (!response || !response.data) return [];
+            if (Array.isArray(response.data)) return response.data;
+            if (typeof response.data === 'object' && response.data !== null) {
+                // Common keys for nested arrays are 'tasks', 'staff', 'users', 'clients', or just 'data'.
+                return response.data[primaryKey] || response.data.users || response.data.data || [];
+            }
+            return [];
+        };
+
+        const tasksArray = extractArray(tasksRes, 'tasks');
+        const staffArray = extractArray(staffRes, 'staff');
+        const clientsArray = extractArray(clientsRes, 'clients');
+
         // AGGRESSIVE DATA SANITIZATION
-        const validTasks = (tasksRes.data || []).filter(task => 
+        const validTasks = tasksArray.filter(task => 
             task && typeof task === 'object' && typeof task._id === 'string'
         );
 
         const normalizedTasks = validTasks.map(task => ({
             ...task,
-            assignedTo: (task.assignedTo && typeof task.assignedTo === 'object' && task.assignedTo.name) 
-                ? task.assignedTo 
-                : null,
-            client: (task.client && typeof task.client === 'object' && task.client.name)
-                ? task.client
-                : null,
+            assignedTo: (task.assignedTo && typeof task.assignedTo === 'object' && task.assignedTo.name) ? task.assignedTo : null,
+            client: (task.client && typeof task.client === 'object' && task.client.name) ? task.client : null,
         }));
 
-        const sanitizedStaff = (staffRes.data || []).filter(s => s && s._id && s.name);
-        const sanitizedClients = (clientsRes.data || []).filter(c => c && c._id && c.name);
+        const sanitizedStaff = staffArray.filter(s => s && s._id && s.name);
+        const sanitizedClients = clientsArray.filter(c => c && c._id && c.name);
 
         setAllTasks(normalizedTasks);
         setStaff(sanitizedStaff);
         setClients(sanitizedClients);
         setError('');
     } catch (err) {
-        console.error('Failed to fetch or sanitize data:', err);
-        const errorMessage = err.response && err.response.data && err.response.data.message
-            ? `Server responded with: ${err.response.data.message}`
-            : 'An unexpected error occurred. Please check the console for more details.';
+        console.error('Failed to fetch or process data:', err);
+        const serverMessage = err.response?.data?.message || '';
+        const errorMessage = `An unexpected error occurred. ${serverMessage ? `Server says: ${serverMessage}` : 'Please check the console for details.'}`;
         setError(`Failed to load data. ${errorMessage}`);
     } finally {
         setLoading(false);
