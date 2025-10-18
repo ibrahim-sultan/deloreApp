@@ -276,7 +276,8 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       }
       return true;
     }),
-  body('staffId').isMongoId().withMessage('Valid staff ID is required')
+  body('staffId').isMongoId().withMessage('Valid staff ID is required'),
+  body('clientId').isMongoId().withMessage('Valid client ID is required'),
 ], async (req, res) => {
   try {
     if (!req.file) {
@@ -298,13 +299,20 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       scheduledStartTime, 
       scheduledEndTime, 
       totalHours,
-      staffId 
+      staffId, 
+      clientId
     } = req.body;
 
     // Verify staff exists
     const staff = await User.findOne({ _id: staffId, role: 'staff' });
     if (!staff) {
       return res.status(404).json({ message: 'Staff not found' });
+    }
+
+    // Verify client exists
+    const client = await Client.findById(clientId);
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
     }
 
     // Create task
@@ -322,6 +330,7 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       totalHours: parseFloat(totalHours),
       createdBy: req.user._id,
       assignedTo: staffId,
+      client: clientId,
       status: 'assigned',
       attachmentFilename: req.file.filename,
       attachmentOriginalName: req.file.originalname,
@@ -354,6 +363,7 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
           <p><strong>Title:</strong> ${title}</p>
           <p><strong>Description:</strong> ${description}</p>
           <p><strong>Location:</strong> ${location}</p>
+          <p><strong>Client:</strong> ${client.name}</p>
           <p><strong>Contact Person:</strong> ${contactPerson}</p>
           <p><strong>Start Time:</strong> ${new Date(scheduledStartTime).toLocaleString()}</p>
           <p><strong>End Time:</strong> ${new Date(scheduledEndTime).toLocaleString()}</p>
@@ -378,6 +388,7 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
         id: task._id,
         title: task.title,
         assignedTo: staff.name,
+        client: client.name,
         scheduledStartTime: task.scheduledStartTime,
         scheduledEndTime: task.scheduledEndTime
       }
@@ -393,6 +404,7 @@ router.get('/assigned-tasks', adminAuth, async (req, res) => {
   try {
     const tasks = await Task.find({ status: { $in: ['assigned', 'in-progress', 'completed'] } })
       .populate('assignedTo', 'name email')
+      .populate('client', 'name')
       .sort({ scheduledStartTime: -1 });
     
     res.json(tasks);

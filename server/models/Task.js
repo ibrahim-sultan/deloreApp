@@ -45,6 +45,11 @@ const taskSchema = new mongoose.Schema({
     ref: 'User',
     required: false // Only required for admin-created tasks
   },
+  client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Client',
+    required: false
+  },
   status: {
     type: String,
     enum: ['pending', 'assigned', 'in-progress', 'completed', 'cancelled'],

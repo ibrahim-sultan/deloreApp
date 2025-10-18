@@ -77,7 +77,7 @@ router.post('/create', auth, upload.single('attachment'), [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, location, totalHours } = req.body;
+    const { title, description, location, totalHours, clientId } = req.body;
 
     // Extract hours from title for additional validation
     const hoursMatch = title.match(/\d+(\.\d+)?/);
@@ -89,7 +89,7 @@ router.post('/create', auth, upload.single('attachment'), [
     //   return res.status(400).json({ message: 'Hours in title must match total hours field' });
     // }
 
-    const task = new Task({
+    const taskData = {
       title,
       description,
       location,
@@ -100,7 +100,13 @@ router.post('/create', auth, upload.single('attachment'), [
       attachmentPath: req.file.path,
       attachmentSize: req.file.size,
       attachmentMimeType: req.file.mimetype
-    });
+    };
+
+    if (clientId) {
+      taskData.client = clientId;
+    }
+
+    const task = new Task(taskData);
 
     await task.save();
 
@@ -113,7 +119,8 @@ router.post('/create', auth, upload.single('attachment'), [
         location: task.location,
         totalHours: task.totalHours,
         status: task.status,
-        createdAt: task.createdAt
+        createdAt: task.createdAt,
+        client: task.client
       }
     });
   } catch (error) {
@@ -131,6 +138,7 @@ router.get('/my-tasks', auth, async (req, res) => {
     console.log('Fetching tasks for user:', req.user._id);
     
     const tasks = await Task.find({ createdBy: req.user._id })
+      .populate('client', 'name address contactNumber')
       .sort({ createdAt: -1 });
 
     const tasksWithHours = tasks.map(task => ({
@@ -142,7 +150,8 @@ router.get('/my-tasks', auth, async (req, res) => {
       hoursSpent: task.hoursSpent,
       totalHours: task.totalHours,
       createdAt: task.createdAt,
-      updatedAt: task.updatedAt
+      updatedAt: task.updatedAt,
+      client: task.client
     }));
     
     console.log('Found', tasks.length, 'tasks for user', req.user._id);
@@ -161,7 +170,8 @@ router.get('/my-tasks', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate('createdBy', 'name email');
+      .populate('createdBy', 'name email')
+      .populate('client', 'name address contactNumber');
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
