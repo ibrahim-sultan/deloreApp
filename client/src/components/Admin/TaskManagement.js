@@ -1,20 +1,17 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import AssignTaskForm from './AssignTaskForm';
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 const TaskManagement = () => {
   const [allTasks, setAllTasks] = useState([]);
   const [staff, setStaff] = useState([]);
   const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [showAssignForm, setShowAssignForm] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -27,6 +24,7 @@ const TaskManagement = () => {
         setAllTasks(tasksRes.data || []);
         setStaff(staffRes.data || []);
         setClients(clientsRes.data || []);
+        setError('');
     } catch (error) {
         console.error('Failed to fetch data:', error);
         setError('Failed to load data. Please try again later.');
@@ -35,24 +33,43 @@ const TaskManagement = () => {
     }
   };
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const handleTaskAssigned = () => {
     setShowAssignForm(false);
     fetchData(); // Refresh all data
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const getFilteredTasks = () => {
+  const filteredTasks = useMemo(() => {
     if (selectedStaff === 'all') {
       return allTasks;
     }
     return allTasks.filter(task => task?.assignedTo?._id === selectedStaff);
-  };
+  }, [allTasks, selectedStaff]);
 
-  const filteredTasks = getFilteredTasks();
+  const tasksByStaff = useMemo(() => {
+    const counts = {};
+    staff.forEach(s => {
+      counts[s._id] = allTasks.filter(task => task?.assignedTo?._id === s._id).length;
+    });
+    return counts;
+  }, [allTasks, staff]);
 
+  if (loading) {
+    return <div className="flex justify-center items-center h-64"><LoadingSpinner /></div>;
+  }
+
+  if (error) {
+    return <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg my-4" role="alert">{error}</div>;
+  }
+  
   return (
     <div className="bg-gray-100 p-6 rounded-lg shadow-inner">
       <div className="flex justify-between items-center mb-6">
@@ -85,18 +102,14 @@ const TaskManagement = () => {
           <option value="all">All Staff ({allTasks.length} tasks)</option>
           {staff.map(s => (
             <option key={s._id} value={s._id}>
-              {s.name} ({allTasks.filter(task => task?.assignedTo?._id === s._id).length} tasks)
+              {s.name} ({tasksByStaff[s._id] || 0} tasks)
             </option>
           ))}
         </select>
       </div>
 
-      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg my-4" role="alert">{error}</div>}
-
       <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-        {loading ? (
-          <div className="text-center p-8">Loading tasks...</div>
-        ) : filteredTasks.length === 0 ? (
+        {filteredTasks.length === 0 ? (
           <div className="text-center p-8">
             <div className="text-5xl mb-4">📋</div>
             <h3 className="text-xl font-semibold text-gray-700">No Tasks Found</h3>
@@ -120,25 +133,25 @@ const TaskManagement = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTasks.map(task => (
-                task && task.assignedTo && task.client &&
-                <tr key={task._id}>
+                <tr key={task?._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-semibold text-gray-800">{task.title || 'Untitled task'}</div>
-                    <div className="text-sm text-gray-500">{task.location || 'No location'}</div>
+                    <div className="font-semibold text-gray-800">{task?.title || 'Untitled task'}</div>
+                    <div className="text-sm text-gray-500">{task?.location || 'No location'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task.assignedTo.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task.client.name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.assignedTo?.name || 'Unassigned'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.client?.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${task.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                         task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' : 
-                         'bg-gray-200 text-gray-800'}`}>
-                      {task.status.replace('-', ' ') || 'pending'}
+                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      task?.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      task?.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-200 text-gray-800'
+                    }`}>
+                      {task?.status?.replace('-', ' ') || 'pending'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <div>Start: {task.scheduledStartTime ? formatDate(task.scheduledStartTime) : '-'}</div>
-                    <div>End: {task.scheduledEndTime ? formatDate(task.scheduledEndTime) : '-'}</div>
+                    <div>Start: {formatDate(task?.scheduledStartTime)}</div>
+                    <div>End: {formatDate(task?.scheduledEndTime)}</div>
                   </td>
                 </tr>
               ))}
