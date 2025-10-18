@@ -23,20 +23,18 @@ const TaskManagement = () => {
         ]);
 
         // AGGRESSIVE DATA SANITIZATION
-        // 1. Filter out any tasks that are not valid objects with a string _id.
         const validTasks = (tasksRes.data || []).filter(task => 
             task && typeof task === 'object' && typeof task._id === 'string'
         );
 
-        // 2. Normalize each task to ensure nested data is safe to render.
         const normalizedTasks = validTasks.map(task => ({
             ...task,
             assignedTo: (task.assignedTo && typeof task.assignedTo === 'object' && task.assignedTo.name) 
                 ? task.assignedTo 
-                : null, // Set to null if it's not a valid object with a name
+                : null,
             client: (task.client && typeof task.client === 'object' && task.client.name)
                 ? task.client
-                : null, // Set to null if it's not a valid object with a name
+                : null,
         }));
 
         const sanitizedStaff = (staffRes.data || []).filter(s => s && s._id && s.name);
@@ -48,7 +46,10 @@ const TaskManagement = () => {
         setError('');
     } catch (err) {
         console.error('Failed to fetch or sanitize data:', err);
-        setError('Failed to load data. An unexpected error occurred.');
+        const errorMessage = err.response && err.response.data && err.response.data.message
+            ? `Server responded with: ${err.response.data.message}`
+            : 'An unexpected error occurred. Please check the console for more details.';
+        setError(`Failed to load data. ${errorMessage}`);
     } finally {
         setLoading(false);
     }
@@ -76,7 +77,6 @@ const TaskManagement = () => {
     if (selectedStaff === 'all') {
       return allTasks;
     }
-    // The data in allTasks is now sanitized, so ?. is for safety but less critical.
     return allTasks.filter(task => task?.assignedTo?._id === selectedStaff);
   }, [allTasks, selectedStaff]);
   
