@@ -15,7 +15,6 @@ router.post('/', auth, async (req, res) => {
     const { name, address, contactNumber } = req.body;
 
     try {
-        // Check if client already exists
         let client = await Client.findOne({ name });
         if (client) {
             return res.status(400).json({ msg: 'Client with that name already exists.' });
@@ -50,6 +49,32 @@ router.get('/', auth, async (req, res) => {
         res.json(clients);
     } catch (err) {
         console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   DELETE api/clients/:id
+// @desc    Delete a client
+// @access  Private (Admin)
+router.delete('/:id', auth, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ msg: 'Access denied. Admins only.' });
+    }
+
+    try {
+        const client = await Client.findById(req.params.id);
+        if (!client) {
+            return res.status(404).json({ msg: 'Client not found.' });
+        }
+
+        await client.remove();
+        res.json({ msg: 'Client removed' });
+
+    } catch (err) {
+        console.error(err.message);
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({ msg: 'Client not found.' });
+        }
         res.status(500).send('Server Error');
     }
 });

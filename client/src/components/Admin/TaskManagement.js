@@ -5,141 +5,140 @@ import AssignTaskForm from './AssignTaskForm';
 
 const TaskManagement = () => {
   const [allTasks, setAllTasks] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [showAssignForm, setShowAssignForm] = useState(false);
 
   useEffect(() => {
-    fetchAllTasks();
+    fetchData();
   }, []);
 
-  const fetchAllTasks = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await axios.get('/api/admin/assigned-tasks', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setAllTasks(response.data || []);
+        const [tasksRes, staffRes, clientsRes] = await Promise.all([
+            axios.get('/api/admin/assigned-tasks', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
+            axios.get('/api/users/staff', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
+            axios.get('/api/clients', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+        ]);
+        setAllTasks(tasksRes.data || []);
+        setStaff(staffRes.data || []);
+        setClients(clientsRes.data || []);
     } catch (error) {
-      setError('Failed to load tasks');
+        console.error('Failed to fetch data:', error);
+        setError('Failed to load data. Please try again later.');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
   const handleTaskAssigned = () => {
     setShowAssignForm(false);
-    fetchAllTasks(); // Refresh the task list
+    fetchData(); // Refresh all data
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   const getFilteredTasks = () => {
     if (selectedStaff === 'all') {
       return allTasks;
     }
-    return allTasks.filter(task => task?.assignedTo && task.assignedTo._id === selectedStaff);
-  };
-
-  const getUniqueStaff = () => {
-    const staffMap = new Map();
-    allTasks.forEach(task => {
-      if (task.assignedTo) {
-        staffMap.set(task.assignedTo._id, task.assignedTo);
-      }
-    });
-    return Array.from(staffMap.values());
+    return allTasks.filter(task => task?.assignedTo?._id === selectedStaff);
   };
 
   const filteredTasks = getFilteredTasks();
-  const uniqueStaff = getUniqueStaff();
 
   return (
-    <div className="management-section">
-      <div className="management-header">
-        <h2 className="management-title">Task Management</h2>
-        <div className="management-actions">
-          <button onClick={() => setShowAssignForm(!showAssignForm)} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-            {showAssignForm ? 'Cancel' : 'Assign New Task'}
-          </button>
-          <select
-            value={selectedStaff}
-            onChange={(e) => setSelectedStaff(e.target.value)}
-            className="form-input ml-4"
-            style={{ width: 'auto' }}
-          >
-            <option value="all">All Staff ({allTasks.length} tasks)</option>
-            {uniqueStaff.map(staff => (
-              <option key={staff._id} value={staff._id}>
-                {staff.name} ({allTasks.filter(task => task?.assignedTo && task.assignedTo._id === staff._id).length})
-              </option>
-            ))}
-          </select>
-        </div>
+    <div className="bg-gray-100 p-6 rounded-lg shadow-inner">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-800">Task Management</h2>
+        <button 
+          onClick={() => setShowAssignForm(true)} 
+          className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105"
+        >
+          Assign New Task
+        </button>
       </div>
 
-      {showAssignForm && <AssignTaskForm onTaskAssigned={handleTaskAssigned} />}
+      {showAssignForm && 
+        <AssignTaskForm 
+          staff={staff} 
+          clients={clients} 
+          onTaskAssigned={handleTaskAssigned} 
+          onCancel={() => setShowAssignForm(false)} 
+        />
+      }
 
-      {error && <div className="alert alert-error">{error}</div>}
+      <div className="mb-4">
+        <label htmlFor="staffFilter" className="sr-only">Filter by Staff</label>
+        <select
+          id="staffFilter"
+          value={selectedStaff}
+          onChange={(e) => setSelectedStaff(e.target.value)}
+          className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="all">All Staff ({allTasks.length} tasks)</option>
+          {staff.map(s => (
+            <option key={s._id} value={s._id}>
+              {s.name} ({allTasks.filter(task => task?.assignedTo?._id === s._id).length} tasks)
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <div className="tasks-table-container mt-8">
+      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg my-4" role="alert">{error}</div>}
+
+      <div className="overflow-x-auto bg-white rounded-lg shadow-md">
         {loading ? (
-          <div className="loading">Loading tasks...</div>
+          <div className="text-center p-8">Loading tasks...</div>
         ) : filteredTasks.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">📋</div>
-            <h3 className="empty-state-title">No Tasks Found</h3>
-            <p className="empty-state-text">
+          <div className="text-center p-8">
+            <div className="text-5xl mb-4">📋</div>
+            <h3 className="text-xl font-semibold text-gray-700">No Tasks Found</h3>
+            <p className="text-gray-500">
               {selectedStaff === 'all' 
-                ? 'No tasks have been assigned yet'
-                : 'This staff member has no assigned tasks'
+                ? 'No tasks have been assigned yet. Try assigning one!'
+                : 'This staff member has no assigned tasks.'
               }
             </p>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th>Task</th>
-                <th>Assigned To</th>
-                <th>Client</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Scheduled Start</th>
-                <th>Scheduled End</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scheduled Dates</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredTasks.map(task => (
                 <tr key={task._id}>
-                  <td>
-                    <div>
-                      <strong>{task?.title || 'Untitled task'}</strong>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-semibold text-gray-800">{task?.title || 'Untitled task'}</div>
+                    <div className="text-sm text-gray-500">{task?.location || 'No location'}</div>
                   </td>
-                  <td>
-                    <div>
-                      <strong>{task?.assignedTo?.name || 'Unknown'}</strong>
-                    </div>
-                  </td>
-                  <td>
-                    <div>
-                      <strong>{task?.client?.name || 'N/A'}</strong>
-                    </div>
-                  </td>
-                  <td>{task?.location || '-'}</td>
-                  <td>
-                    <span className={`status-badge status-${task?.status || 'pending'}`}>
-                      {(task?.status || 'pending').replace('-', ' ')}
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.assignedTo?.name || 'Unknown'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.client?.name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${task.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                         task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' : 
+                         'bg-gray-200 text-gray-800'}`}>
+                      {task?.status?.replace('-', ' ') || 'pending'}
                     </span>
                   </td>
-                  <td>{task?.scheduledStartTime ? formatDate(task.scheduledStartTime) : '-'}</td>
-                  <td>{task?.scheduledEndTime ? formatDate(task.scheduledEndTime) : '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <div>Start: {task?.scheduledStartTime ? formatDate(task.scheduledStartTime) : '-'}</div>
+                    <div>End: {task?.scheduledEndTime ? formatDate(task.scheduledEndTime) : '-'}</div>
+                  </td>
                 </tr>
               ))}
             </tbody>
