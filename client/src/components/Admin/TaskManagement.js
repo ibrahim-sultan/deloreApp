@@ -21,13 +21,34 @@ const TaskManagement = () => {
             axios.get('/api/users/staff', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
             axios.get('/api/clients', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
         ]);
-        setAllTasks(tasksRes.data || []);
-        setStaff(staffRes.data || []);
-        setClients(clientsRes.data || []);
+
+        // AGGRESSIVE DATA SANITIZATION
+        // 1. Filter out any tasks that are not valid objects with a string _id.
+        const validTasks = (tasksRes.data || []).filter(task => 
+            task && typeof task === 'object' && typeof task._id === 'string'
+        );
+
+        // 2. Normalize each task to ensure nested data is safe to render.
+        const normalizedTasks = validTasks.map(task => ({
+            ...task,
+            assignedTo: (task.assignedTo && typeof task.assignedTo === 'object' && task.assignedTo.name) 
+                ? task.assignedTo 
+                : null, // Set to null if it's not a valid object with a name
+            client: (task.client && typeof task.client === 'object' && task.client.name)
+                ? task.client
+                : null, // Set to null if it's not a valid object with a name
+        }));
+
+        const sanitizedStaff = (staffRes.data || []).filter(s => s && s._id && s.name);
+        const sanitizedClients = (clientsRes.data || []).filter(c => c && c._id && c.name);
+
+        setAllTasks(normalizedTasks);
+        setStaff(sanitizedStaff);
+        setClients(sanitizedClients);
         setError('');
-    } catch (error) {
-        console.error('Failed to fetch data:', error);
-        setError('Failed to load data. Please try again later.');
+    } catch (err) {
+        console.error('Failed to fetch or sanitize data:', err);
+        setError('Failed to load data. An unexpected error occurred.');
     } finally {
         setLoading(false);
     }
@@ -44,22 +65,28 @@ const TaskManagement = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    try {
+        return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+        return 'Invalid Date';
+    }
   };
 
   const filteredTasks = useMemo(() => {
     if (selectedStaff === 'all') {
       return allTasks;
     }
+    // The data in allTasks is now sanitized, so ?. is for safety but less critical.
     return allTasks.filter(task => task?.assignedTo?._id === selectedStaff);
   }, [allTasks, selectedStaff]);
-
+  
   const tasksByStaff = useMemo(() => {
-    const counts = {};
-    staff.forEach(s => {
-      counts[s._id] = allTasks.filter(task => task?.assignedTo?._id === s._id).length;
-    });
-    return counts;
+      const counts = {};
+      if (!staff || !allTasks) return {};
+      staff.forEach(s => {
+          counts[s._id] = allTasks.filter(task => task?.assignedTo?._id === s._id).length;
+      });
+      return counts;
   }, [allTasks, staff]);
 
   if (loading) {
@@ -67,11 +94,11 @@ const TaskManagement = () => {
   }
 
   if (error) {
-    return <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg my-4" role="alert">{error}</div>;
+    return <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 my-4" role="alert"><strong>Error:</strong> {error}</div>;
   }
   
   return (
-    <div className="bg-gray-100 p-6 rounded-lg shadow-inner">
+    <div className="bg-gray-100 p-6 rounded-lg shadow-inner min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800">Task Management</h2>
         <button 
@@ -133,25 +160,25 @@ const TaskManagement = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTasks.map(task => (
-                <tr key={task?._id}>
+                <tr key={task._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-semibold text-gray-800">{task?.title || 'Untitled task'}</div>
-                    <div className="text-sm text-gray-500">{task?.location || 'No location'}</div>
+                    <div className="font-semibold text-gray-800">{task.title || 'Untitled task'}</div>
+                    <div className="text-sm text-gray-500">{task.location || 'No location'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.assignedTo?.name || 'Unassigned'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task?.client?.name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task.assignedTo?.name || 'Unassigned'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-700">{task.client?.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      task?.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      task?.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                      task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      task.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-gray-200 text-gray-800'
                     }`}>
-                      {task?.status?.replace('-', ' ') || 'pending'}
+                      {(task.status || 'pending').replace('-', ' ')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <div>Start: {formatDate(task?.scheduledStartTime)}</div>
-                    <div>End: {formatDate(task?.scheduledEndTime)}</div>
+                    <div>Start: {formatDate(task.scheduledStartTime)}</div>
+                    <div>End: {formatDate(task.scheduledEndTime)}</div>
                   </td>
                 </tr>
               ))}
