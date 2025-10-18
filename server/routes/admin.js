@@ -399,6 +399,47 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
   }
 });
 
+// Debug endpoint for troubleshooting data fetching
+router.get('/debug-data', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.find({ role: 'staff' }).select('name email isActive').lean();
+    const Client = require('../models/Client');
+    const clients = await Client.find().select('name email').lean();
+    const tasks = await Task.find().select('title status').limit(5).lean();
+    
+    console.log('🔍 Debug Data Fetched:');
+    console.log('👥 Staff count:', staff.length);
+    console.log('🏢 Clients count:', clients.length);
+    console.log('📋 Tasks count:', tasks.length);
+    
+    res.json({
+      staff: staff,
+      clients: clients,
+      tasks: tasks,
+      message: 'Debug data fetched successfully'
+    });
+  } catch (error) {
+    console.error('❌ Debug endpoint error:', error);
+    res.status(500).json({ message: 'Debug error', error: error.message });
+  }
+});
+
+// Get all staff members
+router.get('/staff', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.find({ role: 'staff' })
+      .select('name email isActive createdAt')
+      .sort({ name: 1 })
+      .lean();
+    
+    console.log('📊 Staff endpoint called - found', staff.length, 'staff members');
+    res.json(staff);
+  } catch (error) {
+    console.error('Error fetching staff:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get all assigned tasks with staff details
 router.get('/assigned-tasks', adminAuth, async (req, res) => {
   try {

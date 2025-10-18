@@ -19,7 +19,7 @@ const TaskManagement = () => {
     try {
         const [tasksRes, staffRes, clientsRes] = await Promise.all([
             axios.get('/api/admin/assigned-tasks', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
-            axios.get('/api/users/staff', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
+            axios.get('/api/admin/staff', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
             axios.get('/api/clients', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
         ]);
 

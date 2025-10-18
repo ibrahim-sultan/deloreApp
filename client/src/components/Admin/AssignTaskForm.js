@@ -65,6 +65,27 @@ const AssignTaskForm = ({ staff, clients, onTaskAssigned, onCancel }) => {
 
     const { title, description, location, latitude, longitude, contactPerson, scheduledStartTime, scheduledEndTime, totalHours, staffId, clientId } = formData;
 
+    // Debug useEffect to log staff and clients data
+    useEffect(() => {
+        console.log('📊 AssignTaskForm Data Debug:');
+        console.log('👥 Staff array:', staff);
+        console.log('🏢 Clients array:', clients);
+        console.log('📋 Staff count:', staff?.length || 0);
+        console.log('🏪 Clients count:', clients?.length || 0);
+        
+        if (staff && staff.length > 0) {
+            console.log('✅ Staff data available:', staff.map(s => ({ id: s._id, name: s.name })));
+        } else {
+            console.log('❌ No staff data available');
+        }
+        
+        if (clients && clients.length > 0) {
+            console.log('✅ Clients data available:', clients.map(c => ({ id: c._id, name: c.name })));
+        } else {
+            console.log('❌ No clients data available');
+        }
+    }, [staff, clients]);
+
     const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
     const onFileChange = e => setFormData({ ...formData, mapAttachment: e.target.files[0] });
 
@@ -162,31 +183,90 @@ const AssignTaskForm = ({ staff, clients, onTaskAssigned, onCancel }) => {
                 </div>
 
                 {/* Assignment Details */}
-                <div className="form-section">
+                <div className="form-section assignment-section">
                     <h4 className="section-title">
                         <span className="section-icon">🎯</span>
                         Assignment Details
+                        <span className="assignment-counts">
+                            ({staff?.length || 0} Staff, {clients?.length || 0} Clients)
+                        </span>
                     </h4>
+                    
+                    {/* Debug Information */}
+                    {(!staff || staff.length === 0) && (
+                        <div className="data-warning">
+                            <span className="warning-icon">⚠️</span>
+                            No staff members available. Please add staff first.
+                        </div>
+                    )}
+                    {(!clients || clients.length === 0) && (
+                        <div className="data-warning">
+                            <span className="warning-icon">⚠️</span>
+                            No clients available. Please add clients first.
+                        </div>
+                    )}
+                    
                     <div className="form-grid">
-                        <Select 
-                            icon="👨‍💼" 
-                            label="Assign to Staff" 
-                            name="staffId" 
-                            value={staffId} 
-                            onChange={onChange} 
-                            options={staff} 
-                            placeholder="Select a staff member" 
-                        />
-                        <Select 
-                            icon="🏢" 
-                            label="Assign to Client" 
-                            name="clientId" 
-                            value={clientId} 
-                            onChange={onChange} 
-                            options={clients} 
-                            placeholder="Select a client" 
-                        />
+                        <div className="enhanced-select-wrapper">
+                            <Select 
+                                icon="👨‍💼" 
+                                label="Assign to Staff Member" 
+                                name="staffId" 
+                                value={staffId} 
+                                onChange={onChange} 
+                                options={staff || []} 
+                                placeholder={staff && staff.length > 0 ? "Choose staff member to assign task" : "No staff available"} 
+                            />
+                            <div className="selection-help">
+                                <span className="help-icon">📝</span>
+                                Select which staff member will handle this task
+                            </div>
+                        </div>
+                        
+                        <div className="enhanced-select-wrapper">
+                            <Select 
+                                icon="🏢" 
+                                label="Client to Visit" 
+                                name="clientId" 
+                                value={clientId} 
+                                onChange={onChange} 
+                                options={clients || []} 
+                                placeholder={clients && clients.length > 0 ? "Choose client for this task" : "No clients available"} 
+                            />
+                            <div className="selection-help">
+                                <span className="help-icon">📝</span>
+                                Select which client the staff will meet/work with
+                            </div>
+                        </div>
                     </div>
+                    
+                    {/* Show selected information */}
+                    {(staffId || clientId) && (
+                        <div className="selection-summary">
+                            <h5 className="summary-title">
+                                <span className="summary-icon">✅</span>
+                                Assignment Summary
+                            </h5>
+                            <div className="summary-grid">
+                                {staffId && (
+                                    <div className="summary-item">
+                                        <span className="summary-label">Staff:</span>
+                                        <span className="summary-value">
+                                            {staff?.find(s => s._id === staffId)?.name || 'Unknown Staff'}
+                                        </span>
+                                    </div>
+                                )}
+                                {clientId && (
+                                    <div className="summary-item">
+                                        <span className="summary-label">Client:</span>
+                                        <span className="summary-value">
+                                            {clients?.find(c => c._id === clientId)?.name || 'Unknown Client'}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Schedule */}
