@@ -1,19 +1,33 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './ClientManagement.css';
 
 const ClientManagement = () => {
+    const navigate = useNavigate();
     const [clients, setClients] = useState([]);
-    const [formData, setFormData] = useState({ name: '', address: '', contactNumber: '' });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editingClient, setEditingClient] = useState(null);
 
     useEffect(() => {
         fetchClients();
+    }, []);
+
+    // Refresh data when component becomes visible (for when returning from add/edit client page)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchClients();
+            }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const fetchClients = async () => {
@@ -32,49 +46,12 @@ const ClientManagement = () => {
         }
     };
 
-    const onChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-    const onSubmit = async e => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-        try {
-            if (editingClient) {
-                await axios.put(`/api/clients/${editingClient._id}`, formData, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                setSuccess('Client updated successfully!');
-                setEditingClient(null);
-            } else {
-                await axios.post('/api/clients', formData, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                setSuccess('Client added successfully!');
-            }
-            setFormData({ name: '', address: '', contactNumber: '' });
-            setShowForm(false);
-            fetchClients();
-            setTimeout(() => setSuccess(''), 5000);
-        } catch (err) {
-            console.error('Error saving client:', err);
-            setError(err.response?.data?.msg || 'Failed to save client.');
-        }
+    const handleAddClient = () => {
+        navigate('/admin/add-client');
     };
 
-    const editClient = (client) => {
-        setEditingClient(client);
-        setFormData({ name: client.name, address: client.address, contactNumber: client.contactNumber });
-        setShowForm(true);
-        setError('');
-        setSuccess('');
-    };
-
-    const cancelEdit = () => {
-        setEditingClient(null);
-        setFormData({ name: '', address: '', contactNumber: '' });
-        setShowForm(false);
-        setError('');
-        setSuccess('');
+    const handleEditClient = (client) => {
+        navigate('/admin/add-client', { state: { client } });
     };
 
     const deleteClient = async (id) => {
@@ -114,13 +91,7 @@ const ClientManagement = () => {
                         </div>
                         <button 
                             className="add-client-btn"
-                            onClick={() => {
-                                setShowForm(true);
-                                setEditingClient(null);
-                                setFormData({ name: '', address: '', contactNumber: '' });
-                                setError('');
-                                setSuccess('');
-                            }}
+                            onClick={handleAddClient}
                         >
                             <span className="btn-icon">+</span>
                             Add New Client
@@ -145,89 +116,6 @@ const ClientManagement = () => {
                 </div>
             )}
 
-            {/* Add/Edit Client Form Modal */}
-            {showForm && (
-                <div className="form-modal-overlay" onClick={() => !editingClient ? cancelEdit() : null}>
-                    <div className="form-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="form-modal-header">
-                            <h2 className="modal-title">
-                                <span className="modal-icon">
-                                    {editingClient ? '✏️' : '🏢'}
-                                </span>
-                                {editingClient ? 'Edit Client' : 'Add New Client'}
-                            </h2>
-                            <button className="modal-close-btn" onClick={cancelEdit}>×</button>
-                        </div>
-                        
-                        <form onSubmit={onSubmit} className="client-form">
-                            <div className="form-group">
-                                <label className="form-label">
-                                    <span className="label-icon">🏷️</span>
-                                    Client Name
-                                </label>
-                                <input 
-                                    className="form-input"
-                                    type="text" 
-                                    name="name" 
-                                    value={formData.name}
-                                    onChange={onChange}
-                                    placeholder="Enter client name (e.g., Acme Corporation)"
-                                    required 
-                                />
-                            </div>
-                            
-                            <div className="form-group">
-                                <label className="form-label">
-                                    <span className="label-icon">📞</span>
-                                    Contact Number
-                                </label>
-                                <input 
-                                    className="form-input"
-                                    type="tel" 
-                                    name="contactNumber" 
-                                    value={formData.contactNumber}
-                                    onChange={onChange}
-                                    placeholder="Enter contact number (e.g., +234 812 345 6789)"
-                                    required 
-                                />
-                            </div>
-                            
-                            <div className="form-group">
-                                <label className="form-label">
-                                    <span className="label-icon">📍</span>
-                                    Address
-                                </label>
-                                <textarea 
-                                    className="form-textarea"
-                                    name="address" 
-                                    value={formData.address}
-                                    onChange={onChange}
-                                    placeholder="Enter client address (e.g., 123 Innovation Drive, Tech City)"
-                                    rows="3"
-                                    required 
-                                />
-                                <div className="form-help">
-                                    <span className="help-icon">🗺️</span>
-                                    Address will be verified via Google Maps
-                                </div>
-                            </div>
-                            
-                            <div className="form-actions">
-                                <button type="button" className="btn-cancel" onClick={cancelEdit}>
-                                    <span className="btn-icon">❌</span>
-                                    Cancel
-                                </button>
-                                <button type="submit" className="btn-save">
-                                    <span className="btn-icon">
-                                        {editingClient ? '✅' : '💾'}
-                                    </span>
-                                    {editingClient ? 'Update Client' : 'Save Client'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {/* Clients Grid */}
             <div className="clients-section">
@@ -257,11 +145,7 @@ const ClientManagement = () => {
                         <p className="empty-text">Start by adding your first client to get organized!</p>
                         <button 
                             className="empty-action-btn"
-                            onClick={() => {
-                                setShowForm(true);
-                                setEditingClient(null);
-                                setFormData({ name: '', address: '', contactNumber: '' });
-                            }}
+                            onClick={handleAddClient}
                         >
                             <span className="btn-icon">+</span>
                             Add First Client
@@ -314,7 +198,7 @@ const ClientManagement = () => {
                                     </button>
                                     <button 
                                         className="action-btn edit-btn"
-                                        onClick={() => editClient(client)}
+                                        onClick={() => handleEditClient(client)}
                                         title="Edit Client"
                                     >
                                         <span className="btn-icon">✏️</span>

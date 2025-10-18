@@ -12,6 +12,7 @@ import AssignTask from './AssignTask';
 import PaymentManagement from './PaymentManagement';
 import MessageManagement from './MessageManagement';
 import ClientManagement from './ClientManagement'; // Import ClientManagement
+import AddClient from './AddClient';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorBoundary from '../Common/ErrorBoundary';
 import './AdminDashboard.css';
@@ -124,6 +125,7 @@ const AdminDashboard = () => {
             <Route path="/payments" element={<PaymentManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
             <Route path="/messages" element={<MessageManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
             <Route path="/clients" element={<ClientManagement />} /> {/* Add this route */}
+            <Route path="/add-client" element={<AddClient />} />
           </Routes>
         </div>
       </div>
