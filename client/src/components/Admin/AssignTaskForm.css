@@ -419,7 +419,128 @@
   outline-offset: 2px;
 }
 
-/* Enhanced Assignment Section */
+/* Data Overview Section */
+.data-overview-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 12px;
+    border-left: 4px solid #0ea5e9;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.overview-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+}
+
+.overview-header {
+    margin-bottom: 1rem;
+}
+
+.overview-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.overview-icon {
+    font-size: 1.1rem;
+}
+
+.staff-list, .clients-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.staff-item, .client-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.staff-item:hover, .client-item:hover {
+    background: #e2e8f0;
+    border-color: #3b82f6;
+}
+
+.staff-avatar, .client-avatar {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.staff-name, .client-name {
+    font-weight: 600;
+    color: #1e293b;
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+.staff-email, .client-email {
+    color: #64748b;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.more-items {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    font-style: italic;
+    padding: 0.5rem;
+    background: #f1f5f9;
+    border-radius: 6px;
+}
+
+.no-data {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #64748b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.no-data-icon {
+    font-size: 2rem;
+    opacity: 0.5;
+}
+
+.no-data-text {
+    font-weight: 500;
+}
+
+/* Responsive adjustments for overview */
+@media (max-width: 768px) {
+    .overview-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Enhanced assignment section styling */
 .assignment-section {
   border-left-color: #805ad5;
   background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);

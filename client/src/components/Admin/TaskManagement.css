@@ -215,12 +215,17 @@
 .form-modal {
   background: white;
   border-radius: var(--border-radius);
-  max-width: 800px;
-  width: 90%;
-  max-height: 90vh;
+  max-width: 1200px;
+  width: 95%;
+  max-height: 95vh;
   overflow-y: auto;
   box-shadow: var(--card-shadow-hover);
   animation: modalSlideIn 0.3s ease-out;
+}
+
+.assign-modal {
+  max-width: 1400px;
+  width: 98%;
 }
 
 @keyframes modalSlideIn {

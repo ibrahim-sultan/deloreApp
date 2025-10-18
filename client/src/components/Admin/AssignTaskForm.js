@@ -138,6 +138,71 @@ const AssignTaskForm = ({ staff, clients, onTaskAssigned, onCancel }) => {
                 </div>
             )}
             
+            {/* Available Staff and Clients Overview */}
+            <div className="data-overview-section">
+                <div className="overview-grid">
+                    <div className="overview-card staff-overview">
+                        <div className="overview-header">
+                            <h4 className="overview-title">
+                                <span className="overview-icon">👥</span>
+                                Available Staff ({staff?.length || 0})
+                            </h4>
+                        </div>
+                        <div className="overview-content">
+                            {staff && staff.length > 0 ? (
+                                <div className="staff-list">
+                                    {staff.slice(0, 5).map(s => (
+                                        <div key={s._id} className="staff-item">
+                                            <span className="staff-avatar">👤</span>
+                                            <span className="staff-name">{s.name}</span>
+                                            <span className="staff-email">{s.email}</span>
+                                        </div>
+                                    ))}
+                                    {staff.length > 5 && (
+                                        <div className="more-items">+{staff.length - 5} more...</div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="no-data">
+                                    <span className="no-data-icon">📭</span>
+                                    <span className="no-data-text">No staff members available</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="overview-card clients-overview">
+                        <div className="overview-header">
+                            <h4 className="overview-title">
+                                <span className="overview-icon">🏢</span>
+                                Available Clients ({clients?.length || 0})
+                            </h4>
+                        </div>
+                        <div className="overview-content">
+                            {clients && clients.length > 0 ? (
+                                <div className="clients-list">
+                                    {clients.slice(0, 5).map(c => (
+                                        <div key={c._id} className="client-item">
+                                            <span className="client-avatar">🏢</span>
+                                            <span className="client-name">{c.name}</span>
+                                            <span className="client-email">{c.email}</span>
+                                        </div>
+                                    ))}
+                                    {clients.length > 5 && (
+                                        <div className="more-items">+{clients.length - 5} more...</div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="no-data">
+                                    <span className="no-data-icon">📭</span>
+                                    <span className="no-data-text">No clients available</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <form onSubmit={onSubmit} className="modern-task-form">
                 {/* Basic Information */}
                 <div className="form-section">
