@@ -1,26 +1,25 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import AssignTaskForm from './AssignTaskForm';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import './TaskManagement.css';
 
 const TaskManagement = () => {
+  const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState([]);
   const [staff, setStaff] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
-  const [showAssignForm, setShowAssignForm] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-        const [tasksRes, staffRes, clientsRes] = await Promise.all([
+        const [tasksRes, staffRes] = await Promise.all([
             axios.get('/api/admin/assigned-tasks', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
-            axios.get('/api/admin/staff', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }),
-            axios.get('/api/clients', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+            axios.get('/api/admin/staff', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
         ]);
 
         // Helper to safely extract array from API response, which might be nested in an object.
@@ -36,7 +35,6 @@ const TaskManagement = () => {
 
         const tasksArray = extractArray(tasksRes, 'tasks');
         const staffArray = extractArray(staffRes, 'staff');
-        const clientsArray = extractArray(clientsRes, 'clients');
 
         // AGGRESSIVE DATA SANITIZATION
         const validTasks = tasksArray.filter(task => 
@@ -50,11 +48,9 @@ const TaskManagement = () => {
         }));
 
         const sanitizedStaff = staffArray.filter(s => s && s._id && s.name);
-        const sanitizedClients = clientsArray.filter(c => c && c._id && c.name);
 
         setAllTasks(normalizedTasks);
         setStaff(sanitizedStaff);
-        setClients(sanitizedClients);
         setError('');
     } catch (err) {
         console.error('Failed to fetch or process data:', err);
@@ -70,9 +66,23 @@ const TaskManagement = () => {
     fetchData();
   }, []);
 
-  const handleTaskAssigned = () => {
-    setShowAssignForm(false);
-    fetchData(); // Refresh all data
+  // Refresh data when component becomes visible (for when returning from assign task page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const handleAssignTaskClick = () => {
+    navigate('/admin/assign-task');
   };
 
   const formatDate = (dateString) => {
@@ -140,7 +150,7 @@ const TaskManagement = () => {
             </div>
             <button 
               className="assign-task-btn"
-              onClick={() => setShowAssignForm(true)}
+              onClick={handleAssignTaskClick}
             >
               <span className="btn-icon">+</span>
               Assign New Task
@@ -190,29 +200,6 @@ const TaskManagement = () => {
         </div>
       </div>
 
-      {/* Assign Task Form Modal */}
-      {showAssignForm && (
-        <div className="form-modal-overlay" onClick={() => setShowAssignForm(false)}>
-          <div className="form-modal assign-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="form-modal-header">
-              <h2 className="modal-title">
-                <span className="modal-icon">⚙️</span>
-                Assign New Task
-              </h2>
-              <button className="modal-close-btn" onClick={() => setShowAssignForm(false)}>×</button>
-            </div>
-            
-            <div className="assign-form-container">
-              <AssignTaskForm 
-                staff={staff} 
-                clients={clients} 
-                onTaskAssigned={handleTaskAssigned} 
-                onCancel={() => setShowAssignForm(false)} 
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Filter Section */}
       <div className="filter-section">
@@ -265,7 +252,7 @@ const TaskManagement = () => {
             </p>
             <button 
               className="empty-action-btn"
-              onClick={() => setShowAssignForm(true)}
+              onClick={handleAssignTaskClick}
             >
               <span className="btn-icon">+</span>
               Assign First Task
