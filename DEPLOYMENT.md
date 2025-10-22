@@ -70,7 +70,7 @@ After deployment, visit: `https://your-app-name.onrender.com/api/auth/create-adm
 
 This will create the initial admin user:
 - **Email**: admin@delore.com
-- **Password**: admin123
+- **Password**: delore@123
 
 ⚠️ **Security Note**: Change the admin password immediately after first login!
 
