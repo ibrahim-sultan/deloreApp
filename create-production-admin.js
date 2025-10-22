@@ -67,7 +67,7 @@ async function createAdminUser() {
     const adminData = {
       name: 'Admin User',
       email: 'admin@delore.com',
-      password: 'admin123', // This will be hashed automatically
+      password: 'delore@123', // This will be hashed automatically
       role: 'admin',
       isActive: true
     };
@@ -99,7 +99,7 @@ async function createAdminUser() {
     
     console.log('\n🔐 Admin Login Credentials:');
     console.log('   Email: admin@delore.com');
-    console.log('   Password: admin123');
+    console.log('   Password: delore@123');
     
   } catch (error) {
     console.error('❌ Error creating admin user:', error);
