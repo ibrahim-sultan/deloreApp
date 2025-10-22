@@ -182,7 +182,7 @@ router.post('/create-admin', async (req, res) => {
     const adminUser = new User({
       name: 'Admin User',
       email: 'admin@delore.com',
-      password: 'admin123',
+      password: 'delore@123',
       role: 'admin',
       isActive: true
     });
@@ -200,7 +200,7 @@ router.post('/create-admin', async (req, res) => {
       },
       credentials: {
         email: 'admin@delore.com',
-        password: 'admin123'
+        password: 'delore@123'
       }
     });
   } catch (error) {
