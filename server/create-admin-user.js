@@ -16,7 +16,7 @@ const BASE_URL = 'http://localhost:5000'; // Server URL
 const ADMIN_USER = {
   name: 'Admin User',
   email: 'admin@delore.com',
-  password: 'admin123'
+  password: 'delore@123'
 };
 
 async function createAdminUser() {
