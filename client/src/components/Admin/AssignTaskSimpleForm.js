@@ -48,7 +48,6 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
       form.append('totalHours', totalHours);
       form.append('staffId', staffId);
       form.append('clientId', clientId);
-      // backend ignores unknown fields; include recurring flag if needed later
       form.append('recurring', String(recurring));
 
       await axios.post('/api/admin/assign-task', form, {
@@ -68,54 +67,122 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
   };
 
   return (
-    <form className="simple-assign-form" onSubmit={handleSubmit}>
-      <h2 className="simple-assign-title">Assign New Task</h2>
+    <div className="assign-task-form-container">
+      {error && <div className="alert alert-error">{error}</div>}
 
-      {error && <div className="simple-alert error">{error}</div>}
+      <div className="form-grid">
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">👤</span>
+            Assign to Staff
+          </label>
+          <div className="select-wrapper">
+            <select 
+              value={staffId} 
+              onChange={(e) => setStaffId(e.target.value)} 
+              className="form-select"
+              required
+            >
+              <option value="">Select Staff</option>
+              {staff.map(s => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+            <span className="select-arrow">▼</span>
+          </div>
+        </div>
 
-      <div className="simple-grid">
-        <div className="simple-field">
-          <label>Assign to Staff</label>
-          <select value={staffId} onChange={(e) => setStaffId(e.target.value)} required>
-            <option value="">Select Staff</option>
-            {staff.map(s => (
-              <option key={s._id} value={s._id}>{s.name}</option>
-            ))}
-          </select>
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🏢</span>
+            Select Client
+          </label>
+          <div className="select-wrapper">
+            <select 
+              value={clientId} 
+              onChange={(e) => setClientId(e.target.value)} 
+              className="form-select"
+              required
+            >
+              <option value="">Select Client</option>
+              {clients.map(c => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+            <span className="select-arrow">▼</span>
+          </div>
         </div>
-        <div className="simple-field">
-          <label>Select Client</label>
-          <select value={clientId} onChange={(e) => setClientId(e.target.value)} required>
-            <option value="">Select Client</option>
-            {clients.map(c => (
-              <option key={c._id} value={c._id}>{c.name}</option>
-            ))}
-          </select>
+
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">📅</span>
+            Date
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="date" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)} 
+              className="form-input"
+              required 
+            />
+            <span className="input-icon">📅</span>
+          </div>
         </div>
-        <div className="simple-field">
-          <label>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🕐</span>
+            Start Time
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="time" 
+              value={startTime} 
+              onChange={(e) => setStartTime(e.target.value)} 
+              className="form-input"
+              required 
+            />
+            <span className="input-icon">🕐</span>
+          </div>
         </div>
-        <div className="simple-field">
-          <label>Start Time</label>
-          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-        </div>
-        <div className="simple-field full">
-          <label>Check-out Time</label>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+
+        <div className="form-field full-width">
+          <label className="field-label">
+            <span className="field-icon">🕐</span>
+            Check-out Time
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="time" 
+              value={endTime} 
+              onChange={(e) => setEndTime(e.target.value)} 
+              className="form-input"
+              placeholder="--:--"
+            />
+            <span className="input-icon">🕐</span>
+          </div>
         </div>
       </div>
 
-      <label className="simple-checkbox">
-        <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-        Recurring assignment
-      </label>
+      <div className="checkbox-field">
+        <label className="checkbox-label">
+          <input 
+            type="checkbox" 
+            checked={recurring} 
+            onChange={(e) => setRecurring(e.target.checked)}
+            className="checkbox-input"
+          />
+          <span className="checkbox-text">Recurring assignment</span>
+        </label>
+      </div>
 
       <button type="submit" className="save-task-btn" disabled={saving}>
         {saving ? 'Saving...' : 'Save Task'}
       </button>
-    </form>
+    </div>
   );
 };
 
 export default AssignTaskSimpleForm;
+

@@ -1,33 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './ClientManagement.css';
 
 const ClientManagement = () => {
-    const navigate = useNavigate();
     const [clients, setClients] = useState([]);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [editingClient, setEditingClient] = useState(null);
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        address: '',
+        contactNumber: '',
+        contactPerson: '',
+        businessType: '',
+        notes: ''
+    });
 
     useEffect(() => {
         fetchClients();
-    }, []);
-
-    // Refresh data when component becomes visible (for when returning from add/edit client page)
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                fetchClients();
-            }
-        };
-        
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
     }, []);
 
     const fetchClients = async () => {
@@ -47,14 +41,81 @@ const ClientManagement = () => {
     };
 
     const handleAddClient = () => {
-        navigate('/admin/add-client');
+        setEditingClient(null);
+        setFormData({
+            name: '',
+            email: '',
+            address: '',
+            contactNumber: '',
+            contactPerson: '',
+            businessType: '',
+            notes: ''
+        });
+        setShowAddModal(true);
     };
 
     const handleEditClient = (client) => {
-        navigate('/admin/add-client', { state: { client } });
+        setEditingClient(client);
+        setFormData({
+            name: client.name || '',
+            email: client.email || '',
+            address: client.address || '',
+            contactNumber: client.contactNumber || '',
+            contactPerson: client.contactPerson || '',
+            businessType: client.businessType || '',
+            notes: client.notes || ''
+        });
+        setShowAddModal(true);
     };
 
-    const deleteClient = async (id) => {
+    const handleCloseModal = () => {
+        setShowAddModal(false);
+        setEditingClient(null);
+        setFormData({
+            name: '',
+            email: '',
+            address: '',
+            contactNumber: '',
+            contactPerson: '',
+            businessType: '',
+            notes: ''
+        });
+        setError('');
+    };
+
+    const handleSubmitClient = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+
+        try {
+            if (editingClient) {
+                await axios.put(`/api/clients/${editingClient._id}`, formData, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                setSuccess('Client updated successfully!');
+            } else {
+                await axios.post('/api/clients', formData, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                setSuccess('Client added successfully!');
+            }
+
+            setTimeout(() => {
+                handleCloseModal();
+                fetchClients();
+                setSuccess('');
+            }, 1500);
+        } catch (err) {
+            console.error('Error saving client:', err);
+            setError(err.response?.data?.msg || err.response?.data?.message || 'Failed to save client.');
+        }
+    };
+
+    const deleteClient = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to delete ${name}?`)) {
+            return;
+        }
         try {
             await axios.delete(`/api/clients/${id}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -68,160 +129,193 @@ const ClientManagement = () => {
         }
     };
 
+    const filteredClients = clients.filter(client => 
+        client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.address?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <div className="client-management-container">
-            {/* Header Section */}
-            <div className="client-header">
-                <div className="header-content">
-                    <div className="header-text">
-                        <h1 className="page-title">
-                            <span className="title-icon">🏢</span>
-                            Client Management
-                        </h1>
-                        <p className="page-subtitle">
-                            Manage your clients and their information efficiently
-                        </p>
+        <div className="manage-clients-container">
+            <div className="clients-header">
+                <h1 className="page-title">Manage Clients</h1>
+                
+                <div className="clients-header-actions">
+                    <div className="search-box">
+                        <span className="search-icon">🔍</span>
+                        <input
+                            type="text"
+                            placeholder="Search clients..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="search-input"
+                        />
                     </div>
-                    <div className="header-actions">
-                        <div className="client-stats">
-                            <div className="stat-item">
-                                <span className="stat-number">{clients.length}</span>
-                                <span className="stat-label">Total Clients</span>
-                            </div>
-                        </div>
-                        <button 
-                            className="add-client-btn"
-                            onClick={handleAddClient}
-                        >
-                            <span className="btn-icon">+</span>
-                            Add New Client
-                        </button>
-                    </div>
+                    <button className="add-client-btn" onClick={handleAddClient}>
+                        <span className="btn-icon">+</span>
+                        Add Client
+                    </button>
                 </div>
             </div>
 
-            {/* Alerts */}
             {error && (
                 <div className="alert alert-error">
-                    <span className="alert-icon">⚠️</span>
-                    {error}
-                    <button className="alert-close" onClick={() => setError('')}>×</button>
+                    <span>⚠️</span> {error}
+                    <button onClick={() => setError('')} className="alert-close">×</button>
                 </div>
             )}
             {success && (
                 <div className="alert alert-success">
-                    <span className="alert-icon">✅</span>
-                    {success}
-                    <button className="alert-close" onClick={() => setSuccess('')}>×</button>
+                    <span>✅</span> {success}
+                    <button onClick={() => setSuccess('')} className="alert-close">×</button>
                 </div>
             )}
 
+            {loading ? (
+                <div className="loading-state">Loading clients...</div>
+            ) : (
+                <div className="clients-table-container">
+                    <table className="clients-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Address</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredClients.length === 0 ? (
+                                <tr>
+                                    <td colSpan="4" className="empty-state-cell">
+                                        <div className="empty-message">
+                                            <span className="empty-icon">📭</span>
+                                            <p>No clients found</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredClients.map(client => (
+                                    <tr key={client._id}>
+                                        <td className="client-name-cell">{client.name}</td>
+                                        <td>{client.email || '-'}</td>
+                                        <td className="address-cell">{client.address || '-'}</td>
+                                        <td>
+                                            <div className="action-buttons">
+                                                <button
+                                                    className="action-btn edit-btn"
+                                                    onClick={() => handleEditClient(client)}
+                                                    title="Edit"
+                                                >
+                                                    ✏️ Edit
+                                                </button>
+                                                <button
+                                                    className="action-btn delete-btn"
+                                                    onClick={() => deleteClient(client._id, client.name)}
+                                                    title="Delete"
+                                                >
+                                                    🗑️ Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-            {/* Clients Grid */}
-            <div className="clients-section">
-                <div className="section-header">
-                    <h2 className="section-title">
-                        <span className="section-icon">📈</span>
-                        Client Directory
-                    </h2>
-                    <div className="section-info">
-                        {loading ? (
-                            <span className="loading-text">🔄 Loading...</span>
-                        ) : (
-                            <span className="clients-count">{clients.length} clients found</span>
+            {/* Add/Edit Client Modal */}
+            {showAddModal && (
+                <div className="modal-overlay" onClick={handleCloseModal}>
+                    <div className="modal-content client-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">{editingClient ? 'Edit Client' : 'Add New Client'}</h2>
+                            <button className="modal-close-btn" onClick={handleCloseModal}>×</button>
+                        </div>
+
+                        {error && (
+                            <div className="alert alert-error" style={{ margin: '0 24px 16px' }}>
+                                {error}
+                            </div>
                         )}
+
+                        <form onSubmit={handleSubmitClient} className="client-form">
+                            <div className="form-group">
+                                <label htmlFor="name">Name</label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    required
+                                    placeholder="Client name"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="email">Email</label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    placeholder="client@example.com"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="contactNumber">Contact</label>
+                                <input
+                                    type="tel"
+                                    id="contactNumber"
+                                    name="contactNumber"
+                                    value={formData.contactNumber}
+                                    onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                                    placeholder="+1234567890"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="address">Address</label>
+                                <textarea
+                                    id="address"
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                    rows="3"
+                                    placeholder="Start typing for suggestions..."
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="contactPerson">Contact Person</label>
+                                <input
+                                    type="text"
+                                    id="contactPerson"
+                                    name="contactPerson"
+                                    value={formData.contactPerson}
+                                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                                    placeholder="Contact person name"
+                                />
+                            </div>
+
+                            <div className="form-actions-modal">
+                                <button type="button" className="btn-cancel" onClick={handleCloseModal}>
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn-save">
+                                    {editingClient ? 'Update' : 'Save'} Client
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                
-                {loading ? (
-                    <div className="loading-state">
-                        <div className="loading-spinner"></div>
-                        <p>Loading clients...</p>
-                    </div>
-                ) : clients.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">🏢</div>
-                        <h3 className="empty-title">No Clients Yet</h3>
-                        <p className="empty-text">Start by adding your first client to get organized!</p>
-                        <button 
-                            className="empty-action-btn"
-                            onClick={handleAddClient}
-                        >
-                            <span className="btn-icon">+</span>
-                            Add First Client
-                        </button>
-                    </div>
-                ) : (
-                    <div className="clients-grid">
-                        {clients.map(client => (
-                            <div key={client._id} className="client-card">
-                                <div className="card-header">
-                                    <div className="client-avatar">
-                                        <span className="avatar-text">
-                                            {client.name.charAt(0).toUpperCase()}
-                                        </span>
-                                    </div>
-                                    <div className="client-info">
-                                        <h3 className="client-name">{client.name}</h3>
-                                        <div className="client-status">
-                                            <span className="status-dot active"></span>
-                                            <span className="status-text">Active</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="card-details">
-                                    <div className="detail-item">
-                                        <span className="detail-icon">📞</span>
-                                        <div className="detail-content">
-                                            <span className="detail-label">Contact</span>
-                                            <span className="detail-value">{client.contactNumber}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="detail-item">
-                                        <span className="detail-icon">📍</span>
-                                        <div className="detail-content">
-                                            <span className="detail-label">Address</span>
-                                            <span className="detail-value">{client.address}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="card-actions">
-                                    <button 
-                                        className="action-btn view-btn"
-                                        title="View on Map"
-                                    >
-                                        <span className="btn-icon">🗺️</span>
-                                        Map
-                                    </button>
-                                    <button 
-                                        className="action-btn edit-btn"
-                                        onClick={() => handleEditClient(client)}
-                                        title="Edit Client"
-                                    >
-                                        <span className="btn-icon">✏️</span>
-                                        Edit
-                                    </button>
-                                    <button 
-                                        className="action-btn delete-btn"
-                                        onClick={() => {
-                                            if (window.confirm(`Are you sure you want to delete ${client.name}?`)) {
-                                                deleteClient(client._id);
-                                            }
-                                        }}
-                                        title="Delete Client"
-                                    >
-                                        <span className="btn-icon">🗑️</span>
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+            )}
         </div>
     );
 };
