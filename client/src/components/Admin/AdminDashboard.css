@@ -16,6 +16,27 @@
   background: white;
   padding: 24px 32px;
   border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-menu-btn .hamburger-line {
+  width: 24px;
+  height: 3px;
+  background-color: #667eea;
+  border-radius: 2px;
+  transition: all 0.3s ease;
 }
 
 .dashboard-title {
@@ -366,6 +387,10 @@
 @media (max-width: 768px) {
   .main-dashboard-content {
     margin-left: 0;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
   }
 
   .dashboard-header {

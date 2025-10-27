@@ -880,4 +880,162 @@ router.delete('/clients/:id', adminAuth, async (req, res) => {
   }
 });
 
+// Create new staff member
+router.post('/staff', adminAuth, [
+  body('name').trim().isLength({ min: 1 }).withMessage('Staff name is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('temporaryPassword').isLength({ min: 6 }).withMessage('Temporary password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, temporaryPassword } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
+
+    // Create new staff member
+    const newStaff = new User({
+      name,
+      email,
+      password: temporaryPassword, // Will be hashed by pre-save hook
+      role: 'staff',
+      isActive: true,
+      isTemporaryPassword: true,
+      temporaryPasswordExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+    });
+
+    await newStaff.save();
+
+    res.status(201).json({
+      message: 'Staff member created successfully',
+      staff: {
+        id: newStaff._id,
+        name: newStaff.name,
+        email: newStaff.email,
+        role: newStaff.role
+      },
+      temporaryCredentials: {
+        email: newStaff.email,
+        temporaryPassword: temporaryPassword
+      }
+    });
+  } catch (error) {
+    console.error('Error creating staff member:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Toggle staff status (activate/deactivate)
+router.put('/staff/:staffId/toggle-status', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' });
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+
+    staff.isActive = !staff.isActive;
+    await staff.save();
+
+    res.json({
+      message: `Staff member ${staff.isActive ? 'activated' : 'deactivated'} successfully`,
+      staff: {
+        id: staff._id,
+        name: staff.name,
+        email: staff.email,
+        isActive: staff.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Error toggling staff status:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get staff member details
+router.get('/staff/:staffId', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' })
+      .select('name email isActive createdAt');
+    
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+
+    // Get staff activity counts
+    const totalDocuments = await Document.countDocuments({ uploadedBy: req.params.staffId });
+    const totalTasks = await Task.countDocuments({ assignedTo: req.params.staffId });
+    const totalPayments = await Payment.countDocuments({ staffMember: req.params.staffId });
+    
+    // Calculate total hours from completed tasks
+    const completedTasks = await Task.find({ 
+      assignedTo: req.params.staffId, 
+      status: 'completed' 
+    });
+    const totalHours = completedTasks.reduce((sum, task) => sum + (task.hoursSpent || 0), 0);
+
+    // Get recent documents
+    const documents = await Document.find({ uploadedBy: req.params.staffId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Get recent tasks
+    const tasks = await Task.find({ assignedTo: req.params.staffId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    res.json({
+      staff: {
+        ...staff.toObject(),
+        totalDocuments,
+        totalTasks,
+        totalHours: Math.round(totalHours * 10) / 10,
+        totalPayments
+      },
+      documents,
+      tasks
+    });
+  } catch (error) {
+    console.error('Error fetching staff details:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Delete staff member
+router.delete('/staff/:staffId', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' });
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+
+    // Check if staff has assigned tasks
+    const assignedTasksCount = await Task.countDocuments({ 
+      assignedTo: req.params.staffId,
+      status: { $in: ['assigned', 'in-progress'] }
+    });
+    
+    if (assignedTasksCount > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete staff member. ${assignedTasksCount} active task(s) are assigned to this staff member.` 
+      });
+    }
+
+    await User.findByIdAndDelete(req.params.staffId);
+
+    res.json({ message: 'Staff member deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting staff member:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

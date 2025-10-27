@@ -26,6 +26,7 @@ const AdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -100,12 +101,25 @@ const AdminDashboard = () => {
     );
   }
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <ErrorBoundary>
       <div className="dashboard-layout">
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
         <div className="main-dashboard-content">
           <div className="dashboard-header">
+            <button className="mobile-menu-btn" onClick={toggleSidebar} aria-label="Toggle menu">
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+              <span className="hamburger-line"></span>
+            </button>
             <h1 className="dashboard-title">Dashboard</h1>
           </div>
           <div className="dashboard-body">

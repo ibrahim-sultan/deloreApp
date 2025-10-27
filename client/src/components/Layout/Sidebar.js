@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './Sidebar.css';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -28,8 +28,17 @@ const Sidebar = () => {
     { name: 'Messages', icon: '💬', path: '/admin/messages' }
   ];
 
+  const handleNavigation = (path) => {
+    navigate(path);
+    if (onClose) onClose(); // Close sidebar on mobile after navigation
+  };
+
   return (
-    <div className="sidebar">
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && <div className="sidebar-overlay" onClick={onClose}></div>}
+      
+      <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <div className="logo">
           <div className="logo-icon">D</div>
@@ -42,7 +51,7 @@ const Sidebar = () => {
           <button
             key={item.path}
             className={`nav-item ${isActive(item.path) ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
+            onClick={() => handleNavigation(item.path)}
           >
             <span className="nav-icon">{item.icon}</span>
             <span className="nav-text">{item.name}</span>
@@ -61,6 +70,7 @@ const Sidebar = () => {
         </button>
       </div>
     </div>
+    </>
   );
 };
 
