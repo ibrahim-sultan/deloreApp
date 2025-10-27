@@ -5,6 +5,8 @@ const User = require('../models/User');
 const Document = require('../models/Document');
 const Payment = require('../models/Payment');
 const Message = require('../models/Message');
+const ActivityLog = require('../models/ActivityLog');
+const Client = require('../models/Client');
 const { adminAuth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -94,6 +96,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     // Get recent items for display (simplified - no complex populates)
     let recentDocuments = [];
     let recentTasks = [];
+    let allTasks = [];
     let recentPayments = [];
 
     try {
@@ -116,6 +119,18 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       console.log('Recent tasks loaded:', recentTasks.length);
     } catch (taskError) {
       console.error('Error loading tasks:', taskError);
+    }
+
+    try {
+      allTasks = await Task.find()
+        .select('title status scheduledStartTime assignedTo createdBy createdAt')
+        .populate('assignedTo', 'name')
+        .populate('createdBy', 'name')
+        .sort({ createdAt: -1 })
+        .lean();
+      console.log('All tasks loaded:', allTasks.length);
+    } catch (taskError) {
+      console.error('Error loading all tasks:', taskError);
     }
 
     try {
@@ -189,6 +204,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       staffMembers,
       documentsByStaff,
       tasksByStaff,
+      tasks: allTasks,
       recentActivities: {
         documents: recentDocuments,
         tasks: recentTasks
@@ -677,6 +693,189 @@ router.post('/override-clock-out/:taskId', adminAuth, [
     });
   } catch (error) {
     console.error('Error in admin override clock-out:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all staff activity logs
+router.get('/staff-logs', adminAuth, async (req, res) => {
+  try {
+    const { staffId, activityType, startDate, endDate, limit = 100 } = req.query;
+    
+    const query = {};
+    
+    if (staffId) {
+      query.user = staffId;
+    }
+    
+    if (activityType) {
+      query.activityType = activityType;
+    }
+    
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    
+    const logs = await ActivityLog.find(query)
+      .populate('user', 'name email role')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+    
+    res.json({ logs });
+  } catch (error) {
+    console.error('Error fetching staff logs:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get activity logs for a specific staff member
+router.get('/staff-logs/:staffId', adminAuth, async (req, res) => {
+  try {
+    const { staffId } = req.params;
+    const { limit = 50 } = req.query;
+    
+    // Verify staff exists
+    const staff = await User.findOne({ _id: staffId, role: 'staff' });
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+    
+    const logs = await ActivityLog.find({ user: staffId })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+    
+    // Get activity statistics
+    const stats = await ActivityLog.aggregate([
+      { $match: { user: mongoose.Types.ObjectId(staffId) } },
+      { $group: { _id: '$activityType', count: { $sum: 1 } } }
+    ]);
+    
+    res.json({
+      staff: {
+        id: staff._id,
+        name: staff.name,
+        email: staff.email
+      },
+      logs,
+      statistics: stats
+    });
+  } catch (error) {
+    console.error('Error fetching staff member logs:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all clients
+router.get('/clients', adminAuth, async (req, res) => {
+  try {
+    const clients = await Client.find()
+      .populate('addedBy', 'name email')
+      .sort({ name: 1 });
+    
+    res.json({ clients });
+  } catch (error) {
+    console.error('Error fetching clients:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Add new client
+router.post('/clients', adminAuth, [
+  body('name').trim().isLength({ min: 1 }).withMessage('Client name is required'),
+  body('address').trim().isLength({ min: 1 }).withMessage('Address is required'),
+  body('contactNumber').trim().isLength({ min: 1 }).withMessage('Contact number is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, address, contactNumber } = req.body;
+
+    // Check if client already exists
+    const existingClient = await Client.findOne({ name });
+    if (existingClient) {
+      return res.status(400).json({ message: 'Client with this name already exists' });
+    }
+
+    const client = new Client({
+      name,
+      address,
+      contactNumber,
+      addedBy: req.user._id
+    });
+
+    await client.save();
+
+    res.status(201).json({
+      message: 'Client added successfully',
+      client
+    });
+  } catch (error) {
+    console.error('Error adding client:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update client
+router.put('/clients/:id', adminAuth, [
+  body('name').optional().trim().isLength({ min: 1 }).withMessage('Client name cannot be empty'),
+  body('address').optional().trim().isLength({ min: 1 }).withMessage('Address cannot be empty'),
+  body('contactNumber').optional().trim().isLength({ min: 1 }).withMessage('Contact number cannot be empty')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+
+    const { name, address, contactNumber } = req.body;
+    
+    if (name) client.name = name;
+    if (address) client.address = address;
+    if (contactNumber) client.contactNumber = contactNumber;
+
+    await client.save();
+
+    res.json({
+      message: 'Client updated successfully',
+      client
+    });
+  } catch (error) {
+    console.error('Error updating client:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Delete client
+router.delete('/clients/:id', adminAuth, async (req, res) => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+
+    // Check if client has tasks
+    const tasksCount = await Task.countDocuments({ client: req.params.id });
+    if (tasksCount > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete client. ${tasksCount} task(s) are associated with this client.` 
+      });
+    }
+
+    await Client.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Client deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting client:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

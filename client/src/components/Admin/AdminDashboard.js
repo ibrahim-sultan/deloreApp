@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import Sidebar from '../Layout/Sidebar';
 import AdminOverview from './AdminOverview';
 import EmergencyAdminOverview from './EmergencyAdminOverview';
 import StaffManagement from './StaffManagement';
@@ -11,8 +11,10 @@ import TaskManagement from './TaskManagement';
 import AssignTask from './AssignTask';
 import PaymentManagement from './PaymentManagement';
 import MessageManagement from './MessageManagement';
-import ClientManagement from './ClientManagement'; // Import ClientManagement
+import ClientManagement from './ClientManagement';
 import AddClient from './AddClient';
+import StaffLogs from './StaffLogs';
+import StaffReports from './StaffReports';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorBoundary from '../Common/ErrorBoundary';
 import './AdminDashboard.css';
@@ -100,33 +102,27 @@ const AdminDashboard = () => {
 
   return (
     <ErrorBoundary>
-      <div className="page-container">
-        <div className="page-header">
-          <h1 className="page-title">Admin Dashboard</h1>
-        </div>
-
-        <div className="admin-tabs">
-          <button className={`tab-button ${getActiveTab() === 'overview' ? 'active' : ''}`} onClick={() => navigateToTab('overview')}>Overview</button>
-          <button className={`tab-button ${getActiveTab() === 'staff' ? 'active' : ''}`} onClick={() => navigateToTab('staff')}>Staff Management</button>
-          <button className={`tab-button ${getActiveTab() === 'documents' ? 'active' : ''}`} onClick={() => navigateToTab('documents')}>Documents</button>
-          <button className={`tab-button ${getActiveTab() === 'tasks' ? 'active' : ''}`} onClick={() => navigateToTab('tasks')}>Tasks</button>
-          <button className={`tab-button ${getActiveTab() === 'payments' ? 'active' : ''}`} onClick={() => navigateToTab('payments')}>Payments</button>
-          <button className={`tab-button ${getActiveTab() === 'messages' ? 'active' : ''}`} onClick={() => navigateToTab('messages')}>Messages</button>
-          <button className={`tab-button ${getActiveTab() === 'clients' ? 'active' : ''}`} onClick={() => navigateToTab('clients')}>Clients</button> {/* Add this button */}
-        </div>
-
-        <div className="admin-content">
-          <Routes>
-            <Route path="/" element={<AdminOverview data={dashboardData} onUpdate={handleDataUpdate} />} />
-            <Route path="/staff" element={<StaffManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
-            <Route path="/documents" element={<DocumentManagement documentsByStaff={dashboardData?.documentsByStaff || []} onUpdate={handleDataUpdate} />} />
-            <Route path="/tasks" element={<TaskManagement />} />
-            <Route path="/assign-task" element={<AssignTask />} />
-            <Route path="/payments" element={<PaymentManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
-            <Route path="/messages" element={<MessageManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
-            <Route path="/clients" element={<ClientManagement />} /> {/* Add this route */}
-            <Route path="/add-client" element={<AddClient />} />
-          </Routes>
+      <div className="dashboard-layout">
+        <Sidebar />
+        <div className="main-dashboard-content">
+          <div className="dashboard-header">
+            <h1 className="dashboard-title">Dashboard</h1>
+          </div>
+          <div className="dashboard-body">
+            <Routes>
+              <Route path="/" element={<AdminOverview data={dashboardData} onUpdate={handleDataUpdate} />} />
+              <Route path="/staff" element={<StaffManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
+              <Route path="/documents" element={<DocumentManagement documentsByStaff={dashboardData?.documentsByStaff || []} onUpdate={handleDataUpdate} />} />
+              <Route path="/tasks" element={<TaskManagement />} />
+              <Route path="/assign-task" element={<AssignTask />} />
+              <Route path="/staff-logs" element={<StaffLogs />} />
+              <Route path="/staff-reports" element={<StaffReports />} />
+              <Route path="/payments" element={<PaymentManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
+              <Route path="/messages" element={<MessageManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
+              <Route path="/clients" element={<ClientManagement />} />
+              <Route path="/add-client" element={<AddClient />} />
+            </Routes>
+          </div>
         </div>
       </div>
     </ErrorBoundary>

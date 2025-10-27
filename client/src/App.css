@@ -6,14 +6,16 @@
 
 .main-content {
   flex: 1;
-  padding-top: 80px; /* Account for fixed navbar */
-  min-height: calc(100vh - 80px);
+  padding-top: 0; /* Remove navbar padding for new design */
+  min-height: 100vh;
 }
 
 .page-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 40px 20px;
+  background: #f9fafb;
+  min-height: 100vh;
 }
 
 .page-header {
