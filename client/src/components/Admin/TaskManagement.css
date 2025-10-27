@@ -736,3 +736,66 @@
     gap: 1rem;
   }
 }
+
+/* Simple UI (list + modal) to match provided screenshots */
+.simple-task-page {
+  padding: 2rem;
+  background: #f7f8fa;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.simple-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.simple-filter { margin-bottom: 1rem; }
+.primary-btn {
+  background: #0b132b;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary-btn:hover { opacity: .9; }
+.table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+.tasks-table { width: 100%; border-collapse: collapse; }
+.tasks-table thead th {
+  background: #fff;
+  font-weight: 700;
+  color: #111827;
+}
+.tasks-table th, .tasks-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  color: #1f2937;
+}
+.status-chip {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 600;
+}
+.status-chip.pending { background: #eef2ff; color: #3b82f6; }
+.status-chip.in-progress { background: #e0f2fe; color: #0369a1; }
+.status-chip.completed { background: #dcfce7; color: #166534; }
+.icon-btn {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-right: 0.35rem;
+}
+.icon-btn:hover { background: #f9fafb; }
+.icon-btn.danger { border-color: #fecaca; color: #b91c1c; }

@@ -8,7 +8,6 @@ import EmergencyAdminOverview from './EmergencyAdminOverview';
 import StaffManagement from './StaffManagement';
 import DocumentManagement from './DocumentManagement';
 import TaskManagement from './TaskManagement';
-import AssignTask from './AssignTask';
 import PaymentManagement from './PaymentManagement';
 import MessageManagement from './MessageManagement';
 import ClientManagement from './ClientManagement';
@@ -128,7 +127,6 @@ const AdminDashboard = () => {
               <Route path="/staff" element={<StaffManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
               <Route path="/documents" element={<DocumentManagement documentsByStaff={dashboardData?.documentsByStaff || []} onUpdate={handleDataUpdate} />} />
               <Route path="/tasks" element={<TaskManagement />} />
-              <Route path="/assign-task" element={<AssignTask />} />
               <Route path="/staff-logs" element={<StaffLogs />} />
               <Route path="/staff-reports" element={<StaffReports />} />
               <Route path="/payments" element={<PaymentManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />

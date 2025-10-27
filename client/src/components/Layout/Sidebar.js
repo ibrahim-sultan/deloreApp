@@ -19,7 +19,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const menuItems = [
     { name: 'Dashboard', icon: '📊', path: '/admin' },
-    { name: 'Assign Task', icon: '📝', path: '/admin/assign-task' },
+    { name: 'Assign Task', icon: '📝', path: '/admin/tasks' },
     { name: 'Manage Staff', icon: '👥', path: '/admin/staff' },
     { name: 'Manage Clients', icon: '🏢', path: '/admin/clients' },
     { name: 'Staff Logs', icon: '📋', path: '/admin/staff-logs' },
