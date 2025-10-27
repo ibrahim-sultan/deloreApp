@@ -20,6 +20,7 @@ const StaffDashboard = () => {
   const [error, setError] = useState('');
   const [userDetails, setUserDetails] = useState(null);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -81,9 +82,24 @@ const StaffDashboard = () => {
     );
   }
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <div className="staff-dashboard-container">
-      <StaffSidebar />
+      {/* Mobile Hamburger Button */}
+      <button className="staff-mobile-menu-btn" onClick={toggleSidebar} aria-label="Toggle menu">
+        <span className="hamburger-line"></span>
+        <span className="hamburger-line"></span>
+        <span className="hamburger-line"></span>
+      </button>
+      
+      <StaffSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
       <div className="staff-main-content">
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />

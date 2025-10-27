@@ -16,7 +16,7 @@ const getIcon = (iconName) => {
   return icons[iconName] || '•';
 };
 
-const StaffSidebar = () => {
+const StaffSidebar = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -30,6 +30,11 @@ const StaffSidebar = () => {
     navigate('/login');
   };
 
+  const handleNavigation = (path) => {
+    navigate(path);
+    if (onClose) onClose();
+  };
+
   const menuItems = [
     { name: 'Dashboard', icon: 'house-fill', path: '/staff/dashboard' },
     { name: 'Schedule', icon: 'calendar-fill', path: '/staff/schedule' },
@@ -41,7 +46,9 @@ const StaffSidebar = () => {
   ];
 
   return (
-    <div className="staff-sidebar">
+    <>
+      {isOpen && <div className="staff-sidebar-overlay" onClick={onClose}></div>}
+      <div className={`staff-sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="staff-sidebar-header">
         <div className="staff-logo">
           <div className="staff-logo-icon">D</div>
@@ -54,7 +61,7 @@ const StaffSidebar = () => {
           <button
             key={item.path}
             className={`staff-nav-item ${isActive(item.path) ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
+            onClick={() => handleNavigation(item.path)}
           >
             <span className="staff-nav-icon">{getIcon(item.icon)}</span>
             <span className="staff-nav-text">{item.name}</span>
@@ -76,6 +83,7 @@ const StaffSidebar = () => {
         </button>
       </div>
     </div>
+    </>
   );
 };
 
