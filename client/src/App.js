@@ -30,8 +30,8 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   }
 
   if (adminOnly && !isAdmin) {
-    console.log('ProtectedRoute: User is not admin, redirecting to dashboard');
-    return <Navigate to="/dashboard" replace />;
+    console.log('ProtectedRoute: User is not admin, redirecting to staff dashboard');
+    return <Navigate to="/staff/dashboard" replace />;
   }
 
   console.log('ProtectedRoute: Access granted for user:', user.name, 'Role:', user.role);
@@ -50,6 +50,21 @@ const PublicRoute = ({ children }) => {
   }
 
   return children;
+};
+
+const DashboardRouter = () => {
+  const { isAdmin, loading } = useAuth();
+  
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+  
+  // Redirect admin to admin dashboard, staff to staff dashboard
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
+  
+  return <Navigate to="/staff/dashboard" replace />;
 };
 
 function AppContent() {
@@ -83,7 +98,7 @@ function AppContent() {
             
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Navigate to="/staff/dashboard" replace />
+                <DashboardRouter />
               </ProtectedRoute>
             } />
             
@@ -101,7 +116,7 @@ function AppContent() {
             
             <Route path="*" element={
               <ProtectedRoute>
-                <Navigate to="/staff/dashboard" replace />
+                <DashboardRouter />
               </ProtectedRoute>
             } />
           </Routes>
