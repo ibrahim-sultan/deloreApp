@@ -1,0 +1,98 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './StaffPages.css';
+
+const DashboardPage = () => {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      const response = await axios.get('/api/tasks/my-tasks');
+      const allTasks = response.data.tasks || [];
+      // Show only pending/upcoming tasks on dashboard
+      const upcomingTasks = allTasks.filter(task => 
+        task.status === 'pending' || task.status === 'in-progress'
+      );
+      setTasks(upcomingTasks.slice(0, 3)); // Show first 3
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="staff-page">
+        <h1 className="staff-page-title">Dashboard</h1>
+        <div style={{ textAlign: 'center', padding: '40px' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="staff-page">
+      <h1 className="staff-page-title">Dashboard</h1>
+      
+      <div className="staff-welcome-banner">
+        <h2 className="staff-welcome-title">Hello, Staff Member!</h2>
+        <p className="staff-welcome-subtitle">Here's what's on your plate for today.</p>
+      </div>
+
+      <div className="staff-content-card">
+        <h3 className="staff-card-title">Today's Assignment</h3>
+        
+        {tasks.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+            <p>No assignments for today.</p>
+          </div>
+        ) : (
+          tasks.map((task, index) => (
+            <div key={task._id || task.id || index} className="staff-assignment">
+              <div className="staff-assignment-header">
+                <span className="staff-client-name">{task.clientName || task.title}</span>
+                <span className="staff-status-badge upcoming">{task.status || 'Pending'}</span>
+              </div>
+              
+              <div className="staff-assignment-details">
+                {task.startTime && task.endTime && (
+                  <div className="staff-detail-item">
+                    <span className="staff-detail-icon">🕐</span>
+                    <span>{task.startTime} - {task.endTime}</span>
+                  </div>
+                )}
+                
+                {task.location && (
+                  <div className="staff-detail-item location-item">
+                    <span className="staff-detail-icon">📍</span>
+                    <span>{task.location}</span>
+                    <button className="staff-directions-btn">
+                      <span>✈️</span> Directions
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="staff-action-buttons">
+                <button className="staff-action-btn primary green">
+                  <span>✓</span> Check In
+                </button>
+                <button className="staff-action-btn primary pink">
+                  <span>📄</span> Report & Check Out
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DashboardPage;
+

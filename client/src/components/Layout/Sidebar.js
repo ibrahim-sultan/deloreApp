@@ -24,6 +24,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     { name: 'Manage Clients', icon: '🏢', path: '/admin/clients' },
     { name: 'Staff Logs', icon: '📋', path: '/admin/staff-logs' },
     { name: 'Staff Reports', icon: '📊', path: '/admin/staff-reports' },
+    { name: 'Leave Requests', icon: '☂️', path: '/admin/leave-requests' },
+    { name: 'Daily Reports', icon: '📄', path: '/admin/daily-reports' },
     { name: 'Payroll', icon: '💰', path: '/admin/payments' },
     { name: 'Messages', icon: '💬', path: '/admin/messages' }
   ];

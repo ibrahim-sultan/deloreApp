@@ -14,6 +14,8 @@ import ClientManagement from './ClientManagement';
 import AddClient from './AddClient';
 import StaffLogs from './StaffLogs';
 import StaffReports from './StaffReports';
+import LeaveRequestManagement from './LeaveRequestManagement';
+import DailyReportsManagement from './DailyReportsManagement';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorBoundary from '../Common/ErrorBoundary';
 import './AdminDashboard.css';
@@ -129,6 +131,8 @@ const AdminDashboard = () => {
               <Route path="/tasks" element={<TaskManagement />} />
               <Route path="/staff-logs" element={<StaffLogs />} />
               <Route path="/staff-reports" element={<StaffReports />} />
+              <Route path="/leave-requests" element={<LeaveRequestManagement />} />
+              <Route path="/daily-reports" element={<DailyReportsManagement />} />
               <Route path="/payments" element={<PaymentManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
               <Route path="/messages" element={<MessageManagement staffMembers={dashboardData?.staffMembers || []} onUpdate={handleDataUpdate} />} />
               <Route path="/clients" element={<ClientManagement />} />

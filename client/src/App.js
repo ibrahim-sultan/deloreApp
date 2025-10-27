@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar/Navbar';
 import Login from './components/Auth/Login';
@@ -9,6 +9,13 @@ import AdminDashboard from './components/Admin/AdminDashboard';
 import TokenTest from './components/Admin/TokenTest';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import './App.css';
+
+const NavbarWrapper = () => {
+  const location = useLocation();
+  const shouldShowNavbar = !location.pathname.startsWith('/staff');
+  
+  return shouldShowNavbar ? <Navbar /> : null;
+};
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { isAuthenticated, isAdmin, loading, user } = useAuth();
@@ -55,7 +62,7 @@ function AppContent() {
   return (
     <div className="App">
       <Router>
-        <Navbar />
+        <NavbarWrapper />
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
@@ -68,9 +75,15 @@ function AppContent() {
             
             {/* Public registration removed - only admins can create staff accounts */}
             
+            <Route path="/staff/*" element={
+              <ProtectedRoute>
+                <StaffDashboard />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <DashboardRouter />
+                <Navigate to="/staff/dashboard" replace />
               </ProtectedRoute>
             } />
             
@@ -86,23 +99,17 @@ function AppContent() {
               </ProtectedRoute>
             } />
             
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={
+              <ProtectedRoute>
+                <Navigate to="/staff/dashboard" replace />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
       </Router>
     </div>
   );
 }
-
-const DashboardRouter = () => {
-  const { isAdmin } = useAuth();
-  
-  if (isAdmin) {
-    return <Navigate to="/admin" replace />;
-  }
-  
-  return <StaffDashboard />;
-};
 
 function App() {
   return (
