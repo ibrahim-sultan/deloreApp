@@ -13,6 +13,11 @@ const TaskManagement = () => {
   const [error, setError] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [showAssign, setShowAssign] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+
+  const handleEdit = (task) => {
+    setEditingTask(task);
+  };
 
   const handleDelete = async (taskId) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
@@ -26,6 +31,20 @@ const TaskManagement = () => {
     } catch (error) {
       console.error('Delete error:', error);
       alert(error.response?.data?.message || 'Failed to delete task');
+    }
+  };
+
+  const handleUpdateTask = async (taskId, updates) => {
+    try {
+      await axios.put(`/api/admin/tasks/${taskId}`, updates, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      alert('Task updated successfully');
+      setEditingTask(null);
+      fetchData();
+    } catch (error) {
+      console.error('Update error:', error);
+      alert(error.response?.data?.message || 'Failed to update task');
     }
   };
 
@@ -147,7 +166,7 @@ const TaskManagement = () => {
                 <td>{task.hoursSpent ? `${task.hoursSpent.toFixed(2)}h` : '-'}</td>
                 <td><span className={`status-chip ${task.status || 'pending'}`}>{statusLabel(task.status)}</span></td>
                 <td>
-                  <button className="icon-btn" title="Edit (Coming soon)" disabled>✏️</button>
+                  <button className="icon-btn" title="Edit" onClick={() => handleEdit(task)}>✏️</button>
                   <button className="icon-btn danger" title="Delete" onClick={() => handleDelete(task._id)}>🗑️</button>
                 </td>
               </tr>
@@ -179,7 +198,126 @@ const TaskManagement = () => {
           </div>
         </div>
       )}
+
+      {editingTask && (
+        <div className="form-modal-overlay" role="dialog" aria-modal="true">
+          <div className="form-modal assign-modal">
+            <div className="form-modal-header">
+              <h3 className="modal-title"><span className="modal-icon">✏️</span> Edit Task</h3>
+              <button className="modal-close-btn" onClick={() => setEditingTask(null)} aria-label="Close">×</button>
+            </div>
+            <div className="assign-form-container">
+              <EditTaskForm 
+                task={editingTask}
+                staff={staff} 
+                clients={clients} 
+                onClose={() => setEditingTask(null)} 
+                onUpdate={handleUpdateTask}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+};
+
+// Edit Task Form Component
+const EditTaskForm = ({ task, staff, clients, onClose, onUpdate }) => {
+  const [staffId, setStaffId] = useState(task.assignedTo?._id || '');
+  const [clientId, setClientId] = useState(task.client?._id || '');
+  const [status, setStatus] = useState(task.status || 'assigned');
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Initialize date/time from task
+  React.useEffect(() => {
+    if (task.scheduledStartTime) {
+      const start = new Date(task.scheduledStartTime);
+      setDate(start.toISOString().split('T')[0]);
+      setStartTime(start.toTimeString().slice(0, 5));
+    }
+    if (task.scheduledEndTime) {
+      const end = new Date(task.scheduledEndTime);
+      setEndTime(end.toTimeString().slice(0, 5));
+    }
+  }, [task]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
+    const updates = {
+      assignedTo: staffId,
+      client: clientId,
+      status,
+      scheduledStartTime: date && startTime ? `${date}T${startTime}` : task.scheduledStartTime,
+      scheduledEndTime: date && endTime ? `${date}T${endTime}` : task.scheduledEndTime
+    };
+
+    await onUpdate(task._id, updates);
+    setSaving(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="form-grid">
+        <div className="form-field">
+          <label>Assign to Staff</label>
+          <select value={staffId} onChange={(e) => setStaffId(e.target.value)} required>
+            <option value="">Select Staff</option>
+            {staff.map(s => (
+              <option key={s._id} value={s._id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-field">
+          <label>Client</label>
+          <select value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <option value="">Select Client</option>
+            {clients.map(c => (
+              <option key={c._id} value={c._id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-field">
+          <label>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div className="form-field">
+          <label>Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+
+        <div className="form-field">
+          <label>Start Time</label>
+          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        </div>
+
+        <div className="form-field">
+          <label>End Time</label>
+          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+        </div>
+      </div>
+
+      <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? 'Updating...' : 'Update Task'}
+        </button>
+      </div>
+    </form>
   );
 };
 
