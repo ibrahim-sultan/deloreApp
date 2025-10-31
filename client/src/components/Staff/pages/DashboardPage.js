@@ -5,6 +5,7 @@ import './StaffPages.css';
 const DashboardPage = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(null);
 
   useEffect(() => {
     fetchTasks();
@@ -25,6 +26,39 @@ const DashboardPage = () => {
       console.error('Error fetching tasks:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClockIn = async (taskId) => {
+    try {
+      setProcessing(taskId);
+      await axios.post(`/api/tasks/${taskId}/clock-in`);
+      alert('Clocked in successfully!');
+      fetchTasks(); // Refresh tasks
+    } catch (error) {
+      console.error('Clock in error:', error);
+      alert(error.response?.data?.message || 'Failed to clock in');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const handleClockOut = async (taskId) => {
+    try {
+      setProcessing(taskId);
+      const workSummary = prompt('Please provide a brief summary of the work completed:');
+      if (workSummary === null) {
+        setProcessing(null);
+        return; // User cancelled
+      }
+      await axios.post(`/api/tasks/${taskId}/clock-out`, { workSummary });
+      alert('Clocked out successfully!');
+      fetchTasks(); // Refresh tasks
+    } catch (error) {
+      console.error('Clock out error:', error);
+      alert(error.response?.data?.message || 'Failed to clock out');
+    } finally {
+      setProcessing(null);
     }
   };
 
@@ -90,12 +124,25 @@ const DashboardPage = () => {
               </div>
               
               <div className="staff-action-buttons">
-                <button className="staff-action-btn primary green">
-                  <span>✓</span> Check In
-                </button>
-                <button className="staff-action-btn primary pink">
-                  <span>📄</span> Report & Check Out
-                </button>
+                {!task.clockInTime ? (
+                  <button 
+                    className="staff-action-btn primary green"
+                    onClick={() => handleClockIn(task.id || task._id)}
+                    disabled={processing === (task.id || task._id)}
+                  >
+                    <span>✓</span> {processing === (task.id || task._id) ? 'Checking in...' : 'Check In'}
+                  </button>
+                ) : task.clockInTime && !task.clockOutTime ? (
+                  <button 
+                    className="staff-action-btn primary pink"
+                    onClick={() => handleClockOut(task.id || task._id)}
+                    disabled={processing === (task.id || task._id)}
+                  >
+                    <span>📄</span> {processing === (task.id || task._id) ? 'Checking out...' : 'Report & Check Out'}
+                  </button>
+                ) : (
+                  <div className="staff-completed-badge">✓ Completed</div>
+                )}
               </div>
             </div>
           ))

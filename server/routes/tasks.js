@@ -304,4 +304,98 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Clock in to task
+router.post('/:id/clock-in', auth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    // Check if user is assigned to this task
+    if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not assigned to this task' });
+    }
+
+    // Check if already clocked in
+    if (task.clockInTime) {
+      return res.status(400).json({ message: 'Already clocked in to this task' });
+    }
+
+    task.clockInTime = new Date();
+    task.status = 'in-progress';
+    await task.save();
+
+    res.json({
+      message: 'Clocked in successfully',
+      task: {
+        id: task._id,
+        clockInTime: task.clockInTime,
+        status: task.status
+      }
+    });
+  } catch (error) {
+    console.error('Clock in error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Clock out from task
+router.post('/:id/clock-out', auth, [
+  body('workSummary').optional().trim()
+], async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    // Check if user is assigned to this task
+    if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not assigned to this task' });
+    }
+
+    // Check if clocked in
+    if (!task.clockInTime) {
+      return res.status(400).json({ message: 'You must clock in before clocking out' });
+    }
+
+    // Check if already clocked out
+    if (task.clockOutTime) {
+      return res.status(400).json({ message: 'Already clocked out of this task' });
+    }
+
+    task.clockOutTime = new Date();
+    task.status = 'completed';
+    
+    // Calculate hours spent
+    const clockInTime = new Date(task.clockInTime);
+    const clockOutTime = new Date(task.clockOutTime);
+    task.hoursSpent = (clockOutTime - clockInTime) / (1000 * 60 * 60); // Convert to hours
+
+    // Add work summary if provided
+    if (req.body.workSummary) {
+      task.workSummary = req.body.workSummary;
+    }
+
+    await task.save();
+
+    res.json({
+      message: 'Clocked out successfully',
+      task: {
+        id: task._id,
+        clockInTime: task.clockInTime,
+        clockOutTime: task.clockOutTime,
+        hoursSpent: task.hoursSpent,
+        status: task.status
+      }
+    });
+  } catch (error) {
+    console.error('Clock out error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
