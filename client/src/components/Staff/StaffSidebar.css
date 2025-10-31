@@ -10,7 +10,7 @@
   overflow-y: auto;
   border-right: 1px solid #e1e5e9;
   z-index: 1000;
-  transform: translateX(-100%);
+  transform: translateX(0);
   transition: transform 0.3s ease;
 }
 
@@ -188,6 +188,7 @@
   .staff-sidebar {
     width: 280px;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    transform: translateX(-100%);
   }
 
   .staff-mobile-menu-btn {
