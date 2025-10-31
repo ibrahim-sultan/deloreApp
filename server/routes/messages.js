@@ -62,12 +62,14 @@ router.get('/inbox', auth, async (req, res) => {
       // Staff can only see messages sent to them
       messages = await Message.find({ recipient: req.user._id })
         .populate('sender', 'name email')
+        .populate('replies.from', 'name email')
         .sort({ createdAt: -1 });
       console.log('Found', messages.length, 'messages for staff user', req.user._id);
     } else {
       // Admin can see all messages they sent
       messages = await Message.find({ sender: req.user._id })
         .populate('recipient', 'name email')
+        .populate('replies.from', 'name email')
         .sort({ createdAt: -1 });
       console.log('Found', messages.length, 'sent messages for admin user', req.user._id);
     }
@@ -87,7 +89,8 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const message = await Message.findById(req.params.id)
       .populate('sender', 'name email')
-      .populate('recipient', 'name email');
+      .populate('recipient', 'name email')
+      .populate('replies.from', 'name email');
 
     if (!message) {
       return res.status(404).json({ message: 'Message not found' });
@@ -134,6 +137,55 @@ router.put('/:id/read', auth, async (req, res) => {
     res.json({ message: 'Message marked as read' });
   } catch (error) {
     console.error('Mark message as read error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reply to a message
+router.post('/:id/reply', auth, [
+  body('replyText').trim().isLength({ min: 1 }).withMessage('Reply text is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { replyText } = req.body;
+    const message = await Message.findById(req.params.id);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    // Check if user is sender or recipient
+    if (message.sender.toString() !== req.user._id.toString() && 
+        message.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Add reply
+    message.replies = message.replies || [];
+    message.replies.push({
+      text: replyText,
+      from: req.user._id,
+      sentAt: new Date()
+    });
+
+    await message.save();
+
+    // Populate the reply with user info
+    const updatedMessage = await Message.findById(req.params.id)
+      .populate('sender', 'name email')
+      .populate('recipient', 'name email')
+      .populate('replies.from', 'name email');
+
+    res.json({ 
+      message: 'Reply sent successfully',
+      messageData: updatedMessage
+    });
+  } catch (error) {
+    console.error('Reply error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

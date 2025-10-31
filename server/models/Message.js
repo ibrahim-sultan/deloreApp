@@ -27,7 +27,22 @@ const messageSchema = new mongoose.Schema({
   },
   readAt: {
     type: Date
-  }
+  },
+  replies: [{
+    text: {
+      type: String,
+      required: true
+    },
+    from: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    sentAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true
 });
