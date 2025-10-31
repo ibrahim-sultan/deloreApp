@@ -296,10 +296,6 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
   body('clientId').isMongoId().withMessage('Valid client ID is required'),
 ], async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'Map attachment is required' });
-    }
-    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -331,8 +327,8 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       return res.status(404).json({ message: 'Client not found' });
     }
 
-    // Create task
-    const task = new Task({
+    // Create task with optional attachment
+    const taskData = {
       title,
       description,
       location,
@@ -347,13 +343,19 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       createdBy: req.user._id,
       assignedTo: staffId,
       client: clientId,
-      status: 'assigned',
-      attachmentFilename: req.file.filename,
-      attachmentOriginalName: req.file.originalname,
-      attachmentPath: req.file.path,
-      attachmentSize: req.file.size,
-      attachmentMimeType: req.file.mimetype
-    });
+      status: 'assigned'
+    };
+    
+    // Add attachment info if file was uploaded
+    if (req.file) {
+      taskData.attachmentFilename = req.file.filename;
+      taskData.attachmentOriginalName = req.file.originalname;
+      taskData.attachmentPath = req.file.path;
+      taskData.attachmentSize = req.file.size;
+      taskData.attachmentMimeType = req.file.mimetype;
+    }
+    
+    const task = new Task(taskData);
 
     await task.save();
 

@@ -132,13 +132,21 @@ router.post('/create', auth, upload.single('attachment'), [
   }
 });
 
-// Get user's tasks
+// Get user's tasks (both created by user and assigned to user)
 router.get('/my-tasks', auth, async (req, res) => {
   try {
-    console.log('Fetching tasks for user:', req.user._id);
+    console.log('Fetching tasks for user:', req.user._id, 'Role:', req.user.role);
     
-    const tasks = await Task.find({ createdBy: req.user._id })
+    // Fetch tasks created by user OR assigned to user
+    const tasks = await Task.find({ 
+      $or: [
+        { createdBy: req.user._id },
+        { assignedTo: req.user._id }
+      ]
+    })
       .populate('client', 'name address contactNumber')
+      .populate('createdBy', 'name')
+      .populate('assignedTo', 'name')
       .sort({ createdAt: -1 });
 
     const tasksWithHours = tasks.map(task => ({
@@ -146,15 +154,25 @@ router.get('/my-tasks', auth, async (req, res) => {
       title: task.title,
       description: task.description,
       location: task.location,
+      contactPerson: task.contactPerson,
       status: task.status,
       hoursSpent: task.hoursSpent,
       totalHours: task.totalHours,
+      scheduledStartTime: task.scheduledStartTime,
+      scheduledEndTime: task.scheduledEndTime,
+      clockInTime: task.clockInTime,
+      clockOutTime: task.clockOutTime,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
-      client: task.client
+      client: task.client,
+      createdBy: task.createdBy,
+      assignedTo: task.assignedTo,
+      coordinates: task.coordinates,
+      attachmentFilename: task.attachmentFilename,
+      attachmentOriginalName: task.attachmentOriginalName
     }));
     
-    console.log('Found', tasks.length, 'tasks for user', req.user._id);
+    console.log('Found', tasks.length, 'tasks for user', req.user._id, '- Created:', tasks.filter(t => t.createdBy?._id?.toString() === req.user._id.toString()).length, 'Assigned:', tasks.filter(t => t.assignedTo?._id?.toString() === req.user._id.toString()).length);
 
     res.json({ tasks: tasksWithHours });
   } catch (error) {

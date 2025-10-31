@@ -28,27 +28,44 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saving) return;
+    
+    // Validate required fields
+    if (!staffId || !clientId || !date || !startTime || !endTime) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    
     setSaving(true);
     setError('');
 
     const scheduledStartTime = toDateTime(date, startTime);
     const scheduledEndTime = toDateTime(date, endTime);
     const totalHours = calcTotalHours(scheduledStartTime, scheduledEndTime);
+    
+    if (!totalHours || parseFloat(totalHours) <= 0) {
+      setError('End time must be after start time');
+      setSaving(false);
+      return;
+    }
 
     try {
+      // Find selected client and staff names for better task title
+      const selectedClient = clients.find(c => c._id === clientId);
+      const selectedStaff = staff.find(s => s._id === staffId);
+      
       const form = new FormData();
-      form.append('title', 'Task');
-      form.append('description', '');
-      form.append('location', '');
-      form.append('contactPerson', '');
-      form.append('latitude', '');
-      form.append('longitude', '');
+      // Create a meaningful title with hours included (required by backend validation)
+      form.append('title', `Task for ${selectedClient?.name || 'Client'} ${totalHours}`);
+      form.append('description', `Task assigned to ${selectedStaff?.name || 'staff member'} for ${selectedClient?.name || 'client'}`);
+      form.append('location', selectedClient?.address || 'TBD');
+      form.append('contactPerson', selectedClient?.contactNumber || 'N/A');
+      form.append('latitude', '0');
+      form.append('longitude', '0');
       form.append('scheduledStartTime', scheduledStartTime);
       form.append('scheduledEndTime', scheduledEndTime);
       form.append('totalHours', totalHours);
       form.append('staffId', staffId);
       form.append('clientId', clientId);
-      form.append('recurring', String(recurring));
 
       await axios.post('/api/admin/assign-task', form, {
         headers: {
@@ -60,7 +77,11 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
       if (onSaved) onSaved();
       if (onClose) onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save task');
+      console.error('Task assignment error:', err);
+      const errorMsg = err.response?.data?.message || 
+                       err.response?.data?.errors?.[0]?.msg ||
+                       'Failed to save task';
+      setError(errorMsg);
     } finally {
       setSaving(false);
     }
@@ -70,7 +91,8 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
     <div className="assign-task-form-container">
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="form-grid">
+      <form onSubmit={handleSubmit}>
+        <div className="form-grid">
         <div className="form-field">
           <label className="field-label">
             <span className="field-icon">👤</span>
@@ -165,21 +187,22 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
         </div>
       </div>
 
-      <div className="checkbox-field">
-        <label className="checkbox-label">
-          <input 
-            type="checkbox" 
-            checked={recurring} 
-            onChange={(e) => setRecurring(e.target.checked)}
-            className="checkbox-input"
-          />
-          <span className="checkbox-text">Recurring assignment</span>
-        </label>
-      </div>
+        <div className="checkbox-field">
+          <label className="checkbox-label">
+            <input 
+              type="checkbox" 
+              checked={recurring} 
+              onChange={(e) => setRecurring(e.target.checked)}
+              className="checkbox-input"
+            />
+            <span className="checkbox-text">Recurring assignment</span>
+          </label>
+        </div>
 
-      <button type="submit" className="save-task-btn" disabled={saving}>
-        {saving ? 'Saving...' : 'Save Task'}
-      </button>
+        <button type="submit" className="save-task-btn" disabled={saving}>
+          {saving ? 'Saving...' : 'Save Task'}
+        </button>
+      </form>
     </div>
   );
 };
