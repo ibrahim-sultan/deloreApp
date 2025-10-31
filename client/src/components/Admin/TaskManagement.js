@@ -14,6 +14,21 @@ const TaskManagement = () => {
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [showAssign, setShowAssign] = useState(false);
 
+  const handleDelete = async (taskId) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    
+    try {
+      await axios.delete(`/api/admin/tasks/${taskId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      alert('Task deleted successfully');
+      fetchData(); // Refresh the list
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert(error.response?.data?.message || 'Failed to delete task');
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -113,7 +128,10 @@ const TaskManagement = () => {
             <tr>
               <th>Staff</th>
               <th>Client</th>
-              <th>Date & Time</th>
+              <th>Scheduled</th>
+              <th>Clock In</th>
+              <th>Clock Out</th>
+              <th>Hours</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -124,16 +142,19 @@ const TaskManagement = () => {
                 <td>{task.assignedTo?.name || 'Unassigned'}</td>
                 <td>{task.client?.name || '-'}</td>
                 <td>{formatDateTime(task.scheduledStartTime)}</td>
+                <td>{task.clockInTime ? formatDateTime(task.clockInTime) : '-'}</td>
+                <td>{task.clockOutTime ? formatDateTime(task.clockOutTime) : '-'}</td>
+                <td>{task.hoursSpent ? `${task.hoursSpent.toFixed(2)}h` : '-'}</td>
                 <td><span className={`status-chip ${task.status || 'pending'}`}>{statusLabel(task.status)}</span></td>
                 <td>
-                  <button className="icon-btn" title="Edit">✏️</button>
-                  <button className="icon-btn danger" title="Delete">🗑️</button>
+                  <button className="icon-btn" title="Edit (Coming soon)" disabled>✏️</button>
+                  <button className="icon-btn danger" title="Delete" onClick={() => handleDelete(task._id)}>🗑️</button>
                 </td>
               </tr>
             ))}
             {filteredTasks.length === 0 && (
               <tr>
-                <td colSpan="5" className="empty-row">No tasks found</td>
+                <td colSpan="8" className="empty-row">No tasks found</td>
               </tr>
             )}
           </tbody>
