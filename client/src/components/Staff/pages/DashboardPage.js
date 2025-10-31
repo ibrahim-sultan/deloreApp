@@ -13,11 +13,13 @@ const DashboardPage = () => {
   const fetchTasks = async () => {
     try {
       const response = await axios.get('/api/tasks/my-tasks');
+      console.log('Fetched tasks:', response.data.tasks);
       const allTasks = response.data.tasks || [];
-      // Show only pending/upcoming tasks on dashboard
+      // Show only pending/upcoming/assigned tasks on dashboard
       const upcomingTasks = allTasks.filter(task => 
-        task.status === 'pending' || task.status === 'in-progress'
+        task.status === 'pending' || task.status === 'assigned' || task.status === 'in-progress'
       );
+      console.log('Upcoming tasks:', upcomingTasks);
       setTasks(upcomingTasks.slice(0, 3)); // Show first 3
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -55,15 +57,17 @@ const DashboardPage = () => {
           tasks.map((task, index) => (
             <div key={task._id || task.id || index} className="staff-assignment">
               <div className="staff-assignment-header">
-                <span className="staff-client-name">{task.clientName || task.title}</span>
+                <span className="staff-client-name">{task.client?.name || task.title}</span>
                 <span className="staff-status-badge upcoming">{task.status || 'Pending'}</span>
               </div>
               
               <div className="staff-assignment-details">
-                {task.startTime && task.endTime && (
+                {(task.scheduledStartTime || task.startTime) && (task.scheduledEndTime || task.endTime) && (
                   <div className="staff-detail-item">
                     <span className="staff-detail-icon">🕐</span>
-                    <span>{task.startTime} - {task.endTime}</span>
+                    <span>
+                      {new Date(task.scheduledStartTime || task.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - {new Date(task.scheduledEndTime || task.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
                 )}
                 
@@ -74,6 +78,13 @@ const DashboardPage = () => {
                     <button className="staff-directions-btn">
                       <span>✈️</span> Directions
                     </button>
+                  </div>
+                )}
+                
+                {task.contactPerson && (
+                  <div className="staff-detail-item">
+                    <span className="staff-detail-icon">👤</span>
+                    <span>Contact: {task.contactPerson}</span>
                   </div>
                 )}
               </div>
