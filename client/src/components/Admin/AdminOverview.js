@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './AdminOverview.css';
 
 const AdminOverview = ({ data, onUpdate }) => {
+  const navigate = useNavigate();
   if (!data) {
     return <div className="loading">Loading overview...</div>;
   }
@@ -34,28 +36,28 @@ const AdminOverview = ({ data, onUpdate }) => {
     <div className="admin-overview-new">
       {/* Statistics Cards - Matching the design */}
       <div className="stats-cards-grid">
-        <div className="stat-card-new blue">
+        <div className="stat-card-new blue clickable" onClick={() => navigate('/admin/staff')} title="View all staff">
           <div className="stat-icon">👥</div>
           <div className="stat-content">
             <div className="stat-number-new">{statistics.totalStaff}</div>
             <div className="stat-label-new">Total Staff</div>
           </div>
         </div>
-        <div className="stat-card-new purple">
+        <div className="stat-card-new purple clickable" onClick={() => navigate('/admin/tasks')} title="View task assignments">
           <div className="stat-icon">📋</div>
           <div className="stat-content">
             <div className="stat-number-new">{tasksAssigned}</div>
             <div className="stat-label-new">Tasks Assigned</div>
           </div>
         </div>
-        <div className="stat-card-new orange">
+        <div className="stat-card-new orange clickable" onClick={() => navigate('/admin/tasks', { state: { filter: 'pending' } })} title="View pending tasks">
           <div className="stat-icon">🕐</div>
           <div className="stat-content">
             <div className="stat-number-new">{pendingTasks}</div>
             <div className="stat-label-new">Pending Tasks</div>
           </div>
         </div>
-        <div className="stat-card-new green">
+        <div className="stat-card-new green clickable" onClick={() => navigate('/admin/tasks', { state: { filter: 'completed' } })} title="View completed tasks">
           <div className="stat-icon">✓</div>
           <div className="stat-content">
             <div className="stat-number-new">{completedTasks}</div>

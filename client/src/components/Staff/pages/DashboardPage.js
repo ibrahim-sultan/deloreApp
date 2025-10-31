@@ -109,9 +109,14 @@ const DashboardPage = () => {
                   <div className="staff-detail-item location-item">
                     <span className="staff-detail-icon">📍</span>
                     <span>{task.location}</span>
-                    <button className="staff-directions-btn">
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(task.location)}${task.coordinates?.latitude && task.coordinates?.longitude ? `&destination=${task.coordinates.latitude},${task.coordinates.longitude}` : ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="staff-directions-btn"
+                    >
                       <span>✈️</span> Directions
-                    </button>
+                    </a>
                   </div>
                 )}
                 

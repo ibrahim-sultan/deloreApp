@@ -20,8 +20,13 @@
   transition: transform 0.2s ease;
 }
 
+.stat-card-new.clickable {
+  cursor: pointer;
+}
+
 .stat-card-new:hover {
   transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Stat card colors matching the design */
