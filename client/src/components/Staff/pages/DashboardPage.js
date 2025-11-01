@@ -32,7 +32,8 @@ const DashboardPage = () => {
   const handleClockIn = async (taskId) => {
     try {
       setProcessing(taskId);
-      await axios.post(`/api/tasks/${taskId}/clock-in`);
+      const coords = await getCurrentCoords();
+      await axios.post(`/api/tasks/${taskId}/clock-in`, coords);
       alert('Clocked in successfully!');
       fetchTasks(); // Refresh tasks
     } catch (error) {
@@ -43,17 +44,24 @@ const DashboardPage = () => {
     }
   };
 
+  const [checkoutTask, setCheckoutTask] = useState(null);
+  const [workSummary, setWorkSummary] = useState('');
+
   const handleClockOut = async (taskId) => {
+    setCheckoutTask(taskId);
+    setWorkSummary('');
+  };
+
+  const submitClockOut = async () => {
+    if (!checkoutTask) return;
     try {
-      setProcessing(taskId);
-      const workSummary = prompt('Please provide a brief summary of the work completed:');
-      if (workSummary === null) {
-        setProcessing(null);
-        return; // User cancelled
-      }
-      await axios.post(`/api/tasks/${taskId}/clock-out`, { workSummary });
+      setProcessing(checkoutTask);
+      const coords = await getCurrentCoords();
+      await axios.post(`/api/tasks/${checkoutTask}/clock-out`, { ...coords, workSummary });
       alert('Clocked out successfully!');
-      fetchTasks(); // Refresh tasks
+      setCheckoutTask(null);
+      setWorkSummary('');
+      fetchTasks();
     } catch (error) {
       console.error('Clock out error:', error);
       alert(error.response?.data?.message || 'Failed to clock out');
@@ -61,6 +69,15 @@ const DashboardPage = () => {
       setProcessing(null);
     }
   };
+
+  const getCurrentCoords = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      (err) => reject(new Error(err.message || 'Geolocation failed')),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
 
   if (loading) {
     return (
@@ -153,6 +170,33 @@ const DashboardPage = () => {
           ))
         )}
       </div>
+      {checkoutTask && (
+        <div className="modal-overlay" onClick={() => setCheckoutTask(null)}>
+          <div className="modal-content" onClick={(e)=>e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Report & Check Out</h3>
+              <button className="close-button" onClick={() => setCheckoutTask(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <label className="form-label">Work Summary</label>
+              <textarea
+                className="form-input form-textarea"
+                rows={8}
+                placeholder="Describe what you accomplished, issues faced, and any notes."
+                value={workSummary}
+                onChange={(e)=>setWorkSummary(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-secondary" onClick={()=>setCheckoutTask(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={submitClockOut} disabled={processing===checkoutTask}>
+                {processing===checkoutTask ? 'Checking out...' : 'Submit & Check Out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

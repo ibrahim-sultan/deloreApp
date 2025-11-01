@@ -3,6 +3,15 @@ const { body, validationResult } = require('express-validator');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const { auth, adminAuth } = require('../middleware/auth');
+const nodemailer = require('nodemailer');
+
+function getTransporter() {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  });
+}
 
 const router = express.Router();
 
@@ -34,6 +43,21 @@ router.post('/send', adminAuth, [
     });
 
     await message.save();
+
+    // Email notification
+    try {
+      const transporter = getTransporter();
+      if (transporter) {
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: recipient.email,
+          subject: `[Delore] ${subject}`,
+          html: `<p>You have a new message from Admin.</p><p><strong>Subject:</strong> ${subject}</p><p>${content}</p>`
+        });
+      }
+    } catch (mailErr) {
+      console.warn('Email notification failed:', mailErr.message);
+    }
 
     res.status(201).json({
       message: 'Message sent successfully',
@@ -151,8 +175,8 @@ router.post('/:id/reply', auth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { replyText } = req.body;
-    const message = await Message.findById(req.params.id);
+  const { replyText } = req.body;
+  const message = await Message.findById(req.params.id).populate('sender', 'email name').populate('recipient', 'email name');
 
     if (!message) {
       return res.status(404).json({ message: 'Message not found' });
@@ -173,6 +197,22 @@ router.post('/:id/reply', auth, [
     });
 
     await message.save();
+
+    // Email notification to the other party
+    try {
+      const transporter = getTransporter();
+      if (transporter) {
+        const otherEmail = (message.sender._id.toString() === req.user._id.toString()) ? message.recipient.email : message.sender.email;
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: otherEmail,
+          subject: `[Delore] Re: ${message.subject}`,
+          html: `<p>You have a new reply from ${req.user.email}.</p><p>${replyText}</p>`
+        });
+      }
+    } catch (mailErr) {
+      console.warn('Email notification failed:', mailErr.message);
+    }
 
     // Populate the reply with user info
     const updatedMessage = await Message.findById(req.params.id)

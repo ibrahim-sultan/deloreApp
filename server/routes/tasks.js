@@ -398,4 +398,98 @@ router.post('/:id/clock-out', auth, [
   }
 });
 
+// Haversine distance in meters
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  function toRad(x) { return x * Math.PI / 180; }
+  const R = 6371000; // meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Staff clock-in with geofence (<= 500m from assigned location)
+router.post('/:id/clock-in', auth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    // Only assignee or creator can clock in
+    const isOwner = task.createdBy?.toString() === req.user._id.toString();
+    const isAssignee = task.assignedTo?.toString() === req.user._id.toString();
+    if (!isOwner && !isAssignee) return res.status(403).json({ message: 'Access denied' });
+
+    if (task.clockInTime) return res.status(400).json({ message: 'Already clocked in' });
+
+    const { latitude, longitude } = req.body || {};
+    if (task.coordinates?.latitude != null && task.coordinates?.longitude != null) {
+      if (latitude == null || longitude == null) {
+        return res.status(400).json({ message: 'Missing current coordinates' });
+      }
+      const dist = distanceMeters(
+        parseFloat(latitude), parseFloat(longitude),
+        task.coordinates.latitude, task.coordinates.longitude
+      );
+      if (dist > 500) {
+        return res.status(400).json({ message: 'Must be within 500m of assigned location to check in' });
+      }
+    }
+
+    task.clockInTime = new Date();
+    task.status = 'in-progress';
+    await task.save();
+
+    res.json({ message: 'Clock-in successful', clockInTime: task.clockInTime });
+  } catch (error) {
+    console.error('Clock-in error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Staff clock-out with geofence (>= 500m away from assigned location)
+router.post('/:id/clock-out', auth, async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    const isOwner = task.createdBy?.toString() === req.user._id.toString();
+    const isAssignee = task.assignedTo?.toString() === req.user._id.toString();
+    if (!isOwner && !isAssignee) return res.status(403).json({ message: 'Access denied' });
+
+    if (!task.clockInTime) return res.status(400).json({ message: 'Not clocked in yet' });
+    if (task.clockOutTime) return res.status(400).json({ message: 'Already clocked out' });
+
+    const { latitude, longitude, workSummary } = req.body || {};
+    if (task.coordinates?.latitude != null && task.coordinates?.longitude != null) {
+      if (latitude == null || longitude == null) {
+        return res.status(400).json({ message: 'Missing current coordinates' });
+      }
+      const dist = distanceMeters(
+        parseFloat(latitude), parseFloat(longitude),
+        task.coordinates.latitude, task.coordinates.longitude
+      );
+      if (dist < 500) {
+        return res.status(400).json({ message: 'Must be at least 500m away from assigned location to check out' });
+      }
+    }
+
+    task.clockOutTime = new Date();
+    task.status = 'completed';
+    if (workSummary) task.workSummary = workSummary;
+
+    const hoursSpent = (task.clockOutTime - new Date(task.clockInTime)) / (1000 * 60 * 60);
+    task.hoursSpent = parseFloat(hoursSpent.toFixed(2));
+
+    await task.save();
+
+    res.json({ message: 'Clock-out successful', clockOutTime: task.clockOutTime, hoursSpent: task.hoursSpent });
+  } catch (error) {
+    console.error('Clock-out error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
