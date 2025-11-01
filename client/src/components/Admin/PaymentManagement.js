@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { formatDate } from '../../utils/datetime';
 
 const PaymentManagement = ({ staffMembers, onUpdate }) => {
   const [showUploadForm, setShowUploadForm] = useState(false);
@@ -106,9 +107,7 @@ const PaymentManagement = ({ staffMembers, onUpdate }) => {
     }).format(amount);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // use shared formatDate from utils/datetime
 
   const getStatusColor = (status) => {
     switch (status) {

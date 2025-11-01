@@ -4,172 +4,81 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-Delore is a full-stack staff management application with a React frontend and Node.js/Express backend. It features role-based access control with two user types: **Staff** (document uploads, task management, payment viewing) and **Admin** (staff oversight, task assignment, payment management, messaging).
+Delore is a full‑stack staff management app: React SPA (client/) + Express API (server/) + MongoDB. Auth is JWT-based with role gating (staff vs admin). The server also serves the built React app in production.
 
-**Tech Stack**: React 18 + React Router | Node.js/Express | MongoDB/Mongoose | JWT auth + bcrypt | Multer file uploads
+## Commands (common)
 
-## Development Commands
-
-### Initial Setup
+### Install & env setup
 ```powershell
-# From root directory - Install all dependencies
+# Install dependencies (run in each package)
 cd server; npm install; cd ../client; npm install; cd ..
 
-# Configure environment
+# Configure server env
 cd server
-copy .env.example .env
-# Edit .env: Set MONGODB_URI and JWT_SECRET
+copy .env.example .env   # Ensure MONGODB_URI and JWT_SECRET are set
 ```
 
-### Development Mode (Run in separate terminals)
+### Run in development (two terminals)
 ```powershell
-# Terminal 1: Start backend (from server/)
+# Terminal A (API)
 cd server
-npm run dev  # Runs on http://localhost:5000 with nodemon
+npm run dev   # http://localhost:5000
 
-# Terminal 2: Start frontend (from client/)
+# Terminal B (web)
 cd client
-npm start    # Runs on http://localhost:3000, proxies API to :5000
+npm start     # http://localhost:3000 (proxy -> :5000)
 ```
 
-### Production Build & Run
+### Tests
 ```powershell
-# From server/ directory
-npm run build  # Installs client deps + builds React app to client/build/
-npm start      # Serves built React app + API on :5000
+# Frontend tests (CRA + Jest)
+cd client
+npm test                    # watch mode
+npm test -- -t "pattern"    # run tests matching name pattern
+npm test -- src/foo.test.js # run a single test file
+# Backend: no test scripts defined
 ```
 
-### Database Utilities
+### Build and run (production)
 ```powershell
-# From root directory
-node test-db-connection.js    # Verify MongoDB connection
-node create-admin-user.js     # Create admin user (default: admin@delore.com)
-node test-registration.js     # Test staff registration flow
+# Build React and serve via Express
+cd server
+npm run build   # builds client into client/build
+npm start       # serves API + static client on :5000
 ```
 
-## Architecture
-
-### Backend (`server/`)
-```
-server.js              # Express app: CORS, routes, static file serving, MongoDB connection w/ retry
-models/                # Mongoose schemas: User, Task, Document, Payment, Message, Client, ActivityLog
-routes/                # API handlers: auth, admin, documents, tasks, payments, messages, clients
-middleware/auth.js     # JWT verification: auth() for all users, adminAuth() for admin-only routes
-uploads/               # File storage for documents and payment receipts
+### Utilities (root scripts)
+```powershell
+node generate-jwt-secret.js   # print a strong JWT secret
+node test-db-connection.js    # verify MongoDB connectivity
+node create-admin-user.js     # seed an initial admin (local dev)
 ```
 
-**Critical**: `server.js` validates required env vars (`JWT_SECRET`, `MONGODB_URI`) on startup and exits if missing.
+## Architecture (big picture)
 
-### Frontend (`client/src/`)
-```
-App.js                 # Routing: ProtectedRoute, PublicRoute, role-based dashboard redirect
-context/AuthContext.js # Global auth: JWT in localStorage, axios defaults, login/logout/register
-components/
-  Admin/               # Dashboard, staff/task/document/payment/message management, client mgmt
-  Staff/               # Dashboard, document upload, task creation, payment/message viewing
-  Auth/                # Login, Register (admin-only staff creation), PasswordChange
-  Common/              # ErrorBoundary, LoadingSpinner
-  Layout/              # Sidebar navigation
-  Navbar/              # Top navigation bar
-```
+- Process model
+  - Dev: separate React dev server (CRA) and Express API (CORS + CRA proxy).
+  - Prod: Express serves REST endpoints and the built SPA from client/build.
+- Server (server/)
+  - server.js: validates JWT_SECRET and MONGODB_URI; connects to MongoDB with retry; mounts route groups under /api/*; serves /uploads statically; catch‑all serves index.html.
+  - Auth: middleware/auth.js provides auth() and adminAuth(); JWT payload contains userId and role.
+  - Route domains: auth, admin, documents, tasks, payments, messages, clients; health at /api/health.
+  - Data: Mongoose models for User/Task/Document/Payment/Message/Client/ActivityLog; uploads stored on disk under server/uploads.
+- Client (client/src)
+  - AuthContext sets/clears axios Authorization header from localStorage token; checks /api/auth/me on load.
+  - App.js defines ProtectedRoute/PublicRoute and redirects admins to /admin via DashboardRouter.
+  - CRA proxy forwards /api/* to http://localhost:5000 in dev.
 
-**Proxy**: Client dev server (`localhost:3000`) proxies `/api/*` to backend (`localhost:5000`).
+Notes
+- Public self‑registration is disabled; create staff via admin flows. For first‑time setup, POST /api/auth/create-admin (returns credentials—change immediately).
+- No monorepo workspace tooling; run npm commands inside server/ and client/ separately.
 
-### Key API Routes
-```
-/api/auth/login, /register, /me              # Authentication
-/api/admin/dashboard, /staff, /assign-task   # Admin operations
-/api/documents/upload, /my-documents         # Document management
-/api/tasks/create, /my-tasks, /clock-in      # Task & time tracking
-/api/payments/upload, /my-payments           # Payment receipts
-/api/messages/send, /inbox                   # Messaging system
-/api/clients/*                               # Client management
-/api/health                                  # Health check endpoint
-```
+## Environment
 
-## Database Models (Mongoose Schemas)
+- Required (see server/.env.example): MONGODB_URI, JWT_SECRET, PORT (default 5000), NODE_ENV.
+- Health check: GET /api/health → { message: 'Delore server is running!' }.
 
-### User (`models/User.js`)
-- **Roles**: `staff` | `admin` (enum, default: `staff`)
-- **Password**: bcrypt hash via `pre('save')` hook; `comparePassword()` method for login
-- **Temporary passwords**: `isTemporaryPassword` boolean + `temporaryPasswordExpiry` date for forced password change
-- **Status**: `isActive` boolean for account management
+## Deployment
 
-### Task (`models/Task.js`)
-- **Title validation**: Must include hours as numbers (e.g., "Project Work 8" or "Task 4.5")
-- **Relationships**: `createdBy` (User), `assignedTo` (User), `client` (Client) - all refs
-- **Status flow**: `pending` → `assigned` → `in-progress` → `completed` | `cancelled`
-- **Time tracking**: `clockInTime`, `clockOutTime`, `scheduledStartTime`, `scheduledEndTime`
-- **Admin override**: `adminOverride.clockIn/clockOut` booleans + `reason` for audit trail
-- **Geolocation**: `coordinates` (lat/lng), `contactPerson` for admin-assigned tasks
-- **Attachments**: File metadata fields for task-related documents
-
-### Document (`models/Document.js`)
-- **Expiry tracking**: `expiryDate` required, `isExpired` boolean updated via `pre('save')` hook
-- **Virtual**: `expired` getter compares `expiryDate` to current date
-- **Metadata**: `originalName`, `filename`, `filePath`, `fileSize`, `mimeType`
-
-### Client (`models/Client.js`)
-- Simple schema: `name`, `address`, `contactNumber`, `addedBy` (User ref)
-
-### Payment & Message Models
-- **Payment**: Staff payment records uploaded by admin
-- **Message**: Admin-to-staff messaging with read/unread status
-- **ActivityLog**: Audit trail for system actions
-
-## Critical Development Patterns
-
-### Authentication Flow
-1. **JWT lifecycle**: Stored in `localStorage`, set as axios default header in `AuthContext`
-2. **Middleware chain**: `auth()` verifies token → `adminAuth()` additionally checks `user.role === 'admin'`
-3. **Protected routes**: `<ProtectedRoute>` in `App.js` checks `isAuthenticated`, redirects to `/login` if false
-4. **Token invalidation**: `auth()` middleware returns 401 if user not found → client clears localStorage
-
-### File Uploads (Multer)
-- **Storage**: Multer `diskStorage` with unique filenames (`Date.now() + originalname`)
-- **Validation**: File type whitelist + size limits (10MB documents, 5MB payments)
-- **Metadata**: Always store `originalName`, `filename`, `filePath`, `fileSize`, `mimeType` in DB
-- **Serving**: Static route `/uploads` serves files from `server/uploads/`
-
-### Error Handling Strategy
-- **Frontend**: `<ErrorBoundary>` wraps components, catches React errors, shows fallback UI
-- **Backend**: Try-catch in all async route handlers, return `{ message: 'error' }` with status codes
-- **Validation**: Use `express-validator` for input validation, return 400 with validation errors
-- **MongoDB errors**: Catch timeout/connection errors separately, return 500 with retry message
-
-### Admin Override System (Tasks)
-- **Clock-in/out override**: Admin can manually set times if staff forgets
-- **Audit trail**: `adminOverride.clockIn/clockOut` booleans + `reason` text field
-- **Use case**: Handle edge cases where staff can't clock in/out due to technical issues
-
-## Environment Variables
-
-**Required** in `server/.env` (copy from `.env.example`):
-```bash
-MONGODB_URI=mongodb://localhost:27017/delore  # Local dev or MongoDB Atlas URI
-JWT_SECRET=<generate-with-node-generate-jwt-secret.js>  # MUST be random in production
-PORT=5000                                      # Backend port
-NODE_ENV=development                           # development | production
-```
-
-**Optional** (email notifications, not currently active):
-```bash
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-email-app-password
-```
-
-**Startup validation**: `server.js` exits with error if `JWT_SECRET` or `MONGODB_URI` missing.
-
-## Deployment (Render)
-
-**Current deployment**: https://deloreapp.onrender.com
-
-**Build process** (automated via `server/package.json`):
-1. `npm run build` → installs client deps + builds React to `client/build/`
-2. `npm start` → serves static React build + API on same port
-
-**Initial admin setup**: Run `node create-admin-user.js` or visit `/api/auth/create-admin` (one-time)
-
-**Health check**: `/api/health` returns `{ message: 'Delore server is running!' }`
-
-See `DEPLOYMENT.md` for full instructions.
+- Render is used; server/package.json runs build (installs client and builds) during deploy; then npm start serves API + SPA.
+- See DEPLOYMENT.md for service config, Node version (18+), and post‑deploy admin creation.

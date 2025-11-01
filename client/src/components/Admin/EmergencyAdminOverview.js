@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDateTime } from '../../utils/datetime';
 
 const EmergencyAdminOverview = ({ data }) => {
   return (
@@ -59,7 +60,7 @@ const EmergencyAdminOverview = ({ data }) => {
           <li>Staff, Document, Task, and Payment management</li>
         </ul>
         <p><strong>User Info:</strong> {data?.user?.email} ({data?.user?.role})</p>
-        <p><strong>Last Updated:</strong> {data?.timestamp ? new Date(data.timestamp).toLocaleString() : 'Just now'}</p>
+<p><strong>Last Updated:</strong> {data?.timestamp ? formatDateTime(data.timestamp) : 'Just now'}</p>
       </div>
 
       <div className="quick-actions">

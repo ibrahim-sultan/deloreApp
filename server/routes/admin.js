@@ -7,6 +7,7 @@ const Payment = require('../models/Payment');
 const Message = require('../models/Message');
 const ActivityLog = require('../models/ActivityLog');
 const Client = require('../models/Client');
+const DocumentTemplate = require('../models/DocumentTemplate');
 const { adminAuth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
@@ -976,6 +977,57 @@ router.post('/staff', adminAuth, [
   } catch (error) {
     console.error('Error creating staff member:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Document templates CRUD
+router.get('/document-templates', adminAuth, async (req, res) => {
+  try {
+    const templates = await DocumentTemplate.find().sort({ createdAt: -1 });
+    res.json({ templates });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to load templates' });
+  }
+});
+
+router.post('/document-templates', adminAuth, [
+  body('title').trim().isLength({ min: 1 }).withMessage('Title is required'),
+  body('description').optional().isString(),
+  body('requiredForAllStaff').optional().isBoolean()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const { title, description = '', requiredForAllStaff = true } = req.body;
+    const tpl = new DocumentTemplate({ title, description, requiredForAllStaff });
+    await tpl.save();
+    res.status(201).json({ message: 'Template created', template: tpl });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to create template' });
+  }
+});
+
+router.put('/document-templates/:id', adminAuth, async (req, res) => {
+  try {
+    const tpl = await DocumentTemplate.findById(req.params.id);
+    if (!tpl) return res.status(404).json({ message: 'Template not found' });
+    const { title, description, requiredForAllStaff } = req.body;
+    if (title !== undefined) tpl.title = title;
+    if (description !== undefined) tpl.description = description;
+    if (requiredForAllStaff !== undefined) tpl.requiredForAllStaff = requiredForAllStaff;
+    await tpl.save();
+    res.json({ message: 'Template updated', template: tpl });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to update template' });
+  }
+});
+
+router.delete('/document-templates/:id', adminAuth, async (req, res) => {
+  try {
+    await DocumentTemplate.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Template deleted' });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to delete template' });
   }
 });
 

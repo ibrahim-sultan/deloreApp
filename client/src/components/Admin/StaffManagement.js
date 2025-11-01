@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatDate, formatDateTime } from '../../utils/datetime';
 
 const StaffManagement = ({ staffMembers, onUpdate }) => {
   const [selectedStaff, setSelectedStaff] = useState(null);
@@ -48,13 +49,7 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     setStaffDetails(null);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
+  // using timezone-aware formatters from utils/datetime
 
   const handleCreateFormChange = (e) => {
     setCreateFormData({

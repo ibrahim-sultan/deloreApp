@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { formatDate } from '../../utils/datetime';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -35,6 +36,8 @@ class ErrorBoundary extends React.Component {
 
 const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
   const [allDocuments, setAllDocuments] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [newTemplate, setNewTemplate] = useState({ title: '', description: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('all');
@@ -95,10 +98,42 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
     }
   }, []);
 
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/admin/document-templates');
+      setTemplates(res.data.templates || []);
+    } catch (e) {
+      console.error('Failed to load templates', e);
+    }
+  }, []);
+
+  const addTemplate = async (e) => {
+    e.preventDefault();
+    if (!newTemplate.title.trim()) return;
+    try {
+      await axios.post('/api/admin/document-templates', newTemplate);
+      setNewTemplate({ title: '', description: '' });
+      fetchTemplates();
+    } catch (e) {
+      console.error('Failed to create template', e);
+    }
+  };
+
+  const deleteTemplate = async (id) => {
+    if (!window.confirm('Delete this template?')) return;
+    try {
+      await axios.delete(`/api/admin/document-templates/${id}`);
+      fetchTemplates();
+    } catch (e) {
+      console.error('Failed to delete template', e);
+    }
+  };
+
   // Fetch documents when component mounts
   useEffect(() => {
     fetchAllDocuments();
-  }, [fetchAllDocuments]);
+    fetchTemplates();
+  }, [fetchAllDocuments, fetchTemplates]);
 
   const handleDownload = async (documentId, filename) => {
     try {
@@ -234,9 +269,7 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // use shared formatDate from utils/datetime
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -319,6 +352,35 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Required Document Templates */}
+      <div className="templates-card" style={{ marginBottom: '16px' }}>
+        <h3>Required Document Templates</h3>
+        <form onSubmit={addTemplate} className="template-form" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+          <input
+            value={newTemplate.title}
+            onChange={(e)=>setNewTemplate({ ...newTemplate, title: e.target.value })}
+            placeholder="Title (e.g., ID, Police Check)"
+            required
+          />
+          <input
+            value={newTemplate.description}
+            onChange={(e)=>setNewTemplate({ ...newTemplate, description: e.target.value })}
+            placeholder="Description (optional)"
+          />
+          <button className="btn btn-small btn-primary" type="submit">Add</button>
+        </form>
+        <ul className="template-list" style={{ marginTop: '8px' }}>
+          {templates.length === 0 ? (
+            <li>No templates yet</li>
+          ) : templates.map(t => (
+            <li key={t._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+              <span><strong>{t.title}</strong>{t.description ? ` – ${t.description}` : ''}</span>
+              <button className="btn btn-small btn-danger" onClick={()=>deleteTemplate(t._id)}>Delete</button>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Document Statistics */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { formatDate, formatDateTime } from '../../utils/datetime';
 
 const TaskCreation = ({ tasks, onUpdate }) => {
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -112,9 +113,7 @@ const TaskCreation = ({ tasks, onUpdate }) => {
     }
   };
 
-  const formatDateTime = (dateTime) => {
-    return new Date(dateTime).toLocaleString();
-  };
+  // using shared timezone-aware formatters
 
   return (
     <div className="task-section">
@@ -280,7 +279,7 @@ const TaskCreation = ({ tasks, onUpdate }) => {
                   {task.status.replace('-', ' ')}
                 </span>
                 <span className="task-created">
-                  Created: {new Date(task.createdAt).toLocaleDateString()}
+                  Created: {formatDate(task.createdAt)}
                 </span>
               </div>
             </div>

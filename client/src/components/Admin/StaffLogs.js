@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import './StaffLogs.css';
+import { formatDateTime } from '../../utils/datetime';
 
 const StaffLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -96,16 +97,7 @@ const StaffLogs = () => {
     setTimeout(() => fetchLogs(), 100);
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (dateString) => formatDateTime(dateString);
 
   const getActivityIcon = (type) => {
     const icons = {

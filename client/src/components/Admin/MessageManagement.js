@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { formatDateTime } from '../../utils/datetime';
 
 const MessageManagement = ({ staffMembers, onUpdate }) => {
   const [showMessageForm, setShowMessageForm] = useState(false);
@@ -62,9 +63,7 @@ const MessageManagement = ({ staffMembers, onUpdate }) => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
+  const formatDate = (dateString) => formatDateTime(dateString);
 
   const getSelectedStaffName = () => {
     const staff = staffMembers.find(s => s._id === formData.recipientId);
@@ -194,7 +193,10 @@ const MessageManagement = ({ staffMembers, onUpdate }) => {
                 </div>
                 
                 <div className="message-recipient">
-                  <strong>To:</strong> {message.recipient?.name} ({message.recipient?.email})
+                  <strong>{message.sender?._id === message.recipient?._id ? 'Participant' : (message.sender?._id !== undefined && message.recipient?._id !== undefined && message.sender?._id === (message.recipient?._id) ? 'To' : (message.recipient?._id ? 'To' : 'To'))}:</strong> {message.recipient?.name} ({message.recipient?.email})
+                </div>
+                <div className="message-sender">
+                  <strong>From:</strong> {message.sender?.name} ({message.sender?.email})
                 </div>
                 
                 <div className="message-content-preview">

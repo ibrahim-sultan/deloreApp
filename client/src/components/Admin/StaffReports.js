@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import './StaffReports.css';
+import { formatDate, formatDateTime } from '../../utils/datetime';
 
 const StaffReports = () => {
   const [reports, setReports] = useState([]);
@@ -49,26 +50,7 @@ const StaffReports = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // using shared datetime utils (America/Toronto)
 
   const getStatusBadge = (status) => {
     const badges = {

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { formatDate } from '../../utils/datetime';
 
 const DocumentUpload = ({ documents, onUpdate }) => {
   const [showUploadForm, setShowUploadForm] = useState(false);
@@ -11,6 +12,19 @@ const DocumentUpload = ({ documents, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [requiredStatus, setRequiredStatus] = useState([]);
+
+  useEffect(() => {
+    const loadRequired = async () => {
+      try {
+        const res = await axios.get('/api/documents/required/status');
+        setRequiredStatus(res.data.status || []);
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadRequired();
+  }, [documents]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -193,6 +207,25 @@ const DocumentUpload = ({ documents, onUpdate }) => {
         </form>
       )}
 
+      {/* Required Documents Status */}
+      <div className="required-docs">
+        <h3>Required Documents</h3>
+        {requiredStatus.length === 0 ? (
+          <p>No required documents configured yet.</p>
+        ) : (
+          <ul>
+            {requiredStatus.map(item => (
+              <li key={item.templateId}>
+                <span>{item.title}</span>
+                <span style={{ marginLeft: 8 }} className={`status-badge ${item.uploaded ? 'status-completed' : 'status-pending'}`}>
+                  {item.uploaded ? 'Uploaded' : 'Missing'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="documents-list">
         {documents.length === 0 ? (
           <div className="empty-state">
@@ -208,7 +241,7 @@ const DocumentUpload = ({ documents, onUpdate }) => {
                 <div className="document-info">
                   <h4>{doc.title}</h4>
                   <p>Original: {doc.originalName}</p>
-                  <p>Uploaded: {new Date(doc.uploadedAt || doc.createdAt).toLocaleDateString()}</p>
+                  <p>Uploaded: {formatDate(doc.uploadedAt || doc.createdAt)}</p>
                 </div>
                 
                 <div className="document-meta">

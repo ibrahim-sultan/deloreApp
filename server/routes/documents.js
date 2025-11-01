@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const Document = require('../models/Document');
+const DocumentTemplate = require('../models/DocumentTemplate');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -85,6 +86,34 @@ router.post('/upload', auth, upload.single('document'), [
   } catch (error) {
     console.error('Document upload error:', error);
     res.status(500).json({ message: 'Server error during document upload' });
+  }
+});
+
+// List required document templates (for staff view)
+router.get('/required/templates', auth, async (req, res) => {
+  try {
+    const templates = await DocumentTemplate.find({ requiredForAllStaff: true }).sort({ createdAt: 1 }).lean();
+    res.json({ templates });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to load required templates' });
+  }
+});
+
+// Required documents status for current user
+router.get('/required/status', auth, async (req, res) => {
+  try {
+    const templates = await DocumentTemplate.find({ requiredForAllStaff: true }).lean();
+    const docs = await Document.find({ uploadedBy: req.user._id }).select('title');
+    const uploadedTitles = new Set(docs.map(d => (d.title||'').toLowerCase().trim()));
+    const status = templates.map(t => ({
+      templateId: t._id,
+      title: t.title,
+      required: true,
+      uploaded: uploadedTitles.has((t.title||'').toLowerCase().trim())
+    }));
+    res.json({ status });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to compute required status' });
   }
 });
 

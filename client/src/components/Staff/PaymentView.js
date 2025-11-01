@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { formatDate } from '../../utils/datetime';
 
 const PaymentView = ({ payments }) => {
   const [error, setError] = useState('');
@@ -66,10 +67,10 @@ const PaymentView = ({ payments }) => {
                 <p>{payment.description || 'Payment from admin'}</p>
                 <p>Uploaded by: {payment.uploadedBy?.name}</p>
                 <div className="payment-date">
-                  Payment Date: {new Date(payment.paymentDate).toLocaleDateString()}
+                  Payment Date: {formatDate(payment.paymentDate)}
                 </div>
                 <div className="payment-date">
-                  Uploaded: {new Date(payment.createdAt).toLocaleDateString()}
+                  Uploaded: {formatDate(payment.createdAt)}
                 </div>
               </div>
               
