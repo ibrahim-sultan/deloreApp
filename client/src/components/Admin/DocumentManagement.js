@@ -173,6 +173,26 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
     }
   };
 
+  const handleView = async (documentId, filename, mimeType) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`/api/documents/${documentId}/download`, {
+        responseType: 'blob',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const blob = new Blob([response.data], { type: mimeType || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      // Revoke later
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to view document';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (documentId, documentTitle) => {
     if (!window.confirm(`Are you sure you want to delete "${documentTitle}"? This action cannot be undone.`)) {
       return;
@@ -472,9 +492,18 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
                     <td>
                       <div className="action-buttons">
                         <button
+                          className="btn btn-small btn-secondary"
+                          onClick={() => handleView(doc._id, doc.originalName, doc.mimeType)}
+                          disabled={loading}
+                          title="View"
+                        >
+                          View
+                        </button>
+                        <button
                           className="btn btn-small btn-primary"
                           onClick={() => handleDownload(doc._id, doc.originalName)}
                           disabled={loading}
+                          style={{ marginLeft: '8px' }}
                         >
                           Download
                         </button>
