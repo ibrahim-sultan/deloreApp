@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import DocumentUpload from '../DocumentUpload';
-import '../StaffPages.css';
+import './StaffPages.css';
 
 const DocumentsPage = () => {
   const [documents, setDocuments] = useState([]);
