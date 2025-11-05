@@ -140,18 +140,19 @@ const DocumentManagement = ({ documentsByStaff = [], onUpdate }) => {
       setLoading(true);
       console.log('Attempting to download document:', documentId, filename);
       
-      // Use admin-specific download route
-      const response = await axios.get(`/api/admin/documents/${documentId}/download`, {
-        responseType: 'blob'
+      // Use shared documents download route (allows admin or owner)
+      const response = await axios.get(`/api/documents/${documentId}/download`, {
+        responseType: 'blob',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       
-      // Check if component is still mounted before continuing
       if (!isMounted.current) return;
       
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', filename || 'document');
       document.body.appendChild(link);
       link.click();
       link.remove();
