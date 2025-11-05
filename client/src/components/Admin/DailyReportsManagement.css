@@ -1,0 +1,150 @@
+.daily-reports-management {
+  padding: 20px;
+}
+
+.filters-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.reports-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.stat-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+}
+
+.reports-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.report-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.report-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.report-staff h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: #2d3748;
+}
+
+.report-staff p {
+  margin: 0;
+  font-size: 12px;
+  color: #718096;
+}
+
+.report-date {
+  font-size: 13px;
+  color: #718096;
+}
+
+.report-content-preview {
+  color: #4a5568;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.report-task {
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #495057;
+}
+
+.modal-content.large {
+  max-width: 800px;
+}
+
+.report-details {
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+}
+
+.report-details p {
+  margin: 8px 0;
+}
+
+.report-content-full {
+  background: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e1e5e9;
+}
+
+.report-content-full h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #2d3748;
+}
+
+.report-content-full p {
+  margin: 0;
+  line-height: 1.6;
+  color: #4a5568;
+  white-space: pre-wrap;
+}
+

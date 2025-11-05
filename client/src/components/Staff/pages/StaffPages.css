@@ -1,0 +1,461 @@
+.staff-page {
+  padding: 40px;
+  max-width: 1200px;
+  background-color: #f5f5f5;
+}
+
+.staff-page-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 24px;
+}
+
+.staff-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 24px;
+}
+
+/* Welcome Banner */
+.staff-welcome-banner {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  padding: 32px 40px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.staff-welcome-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 8px 0;
+}
+
+.staff-welcome-subtitle {
+  font-size: 16px;
+  color: white;
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* Content Card */
+.staff-content-card {
+  background: white;
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.staff-card-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 24px;
+}
+
+/* Assignment */
+.staff-assignment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.staff-client-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.staff-status-badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.staff-status-badge.upcoming {
+  background-color: #cce5ff;
+  color: #0056b3;
+}
+
+.staff-assignment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.staff-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: #4a5568;
+}
+
+.staff-detail-item.location-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.staff-detail-icon {
+  font-size: 18px;
+}
+
+.staff-directions-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #2d3748;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.staff-directions-btn:hover {
+  background-color: #f8f9fa;
+}
+
+/* Action Buttons */
+.staff-action-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.staff-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.staff-action-btn.primary.green {
+  background-color: #28a745;
+}
+
+.staff-action-btn.primary.pink {
+  background-color: #ff6b9d;
+}
+
+.staff-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Schedule Cards */
+.staff-schedules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.staff-schedule-card {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  max-width: 600px;
+}
+
+.staff-schedule-client {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 12px;
+}
+
+.staff-schedule-date {
+  font-size: 14px;
+  color: #666;
+  text-align: right;
+  margin-bottom: 16px;
+}
+
+.staff-schedule-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.staff-schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.staff-schedule-icon {
+  font-size: 16px;
+}
+
+/* Report Form */
+.staff-report-form {
+  max-width: 800px;
+}
+
+.staff-report-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 12px;
+}
+
+.staff-report-textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 16px;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 24px;
+}
+
+.staff-submit-btn {
+  width: 100%;
+  padding: 14px 24px;
+  background-color: #2d3748;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.staff-submit-btn:hover {
+  background-color: #1a202c;
+  transform: translateY(-2px);
+}
+
+/* Pay Stubs */
+.staff-paystubs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.staff-paystub-card {
+  background: white;
+  padding: 20px 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.staff-paystub-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.staff-paystub-icon {
+  font-size: 32px;
+}
+
+.staff-paystub-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 4px;
+}
+
+.staff-paystub-date {
+  font-size: 13px;
+  color: #718096;
+}
+
+.staff-paystub-download {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px;
+}
+
+/* Request Leave */
+.staff-leave-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.staff-leave-form-section {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.staff-leave-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 20px;
+}
+
+.staff-leave-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.staff-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.staff-form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.staff-date-input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.staff-date-input {
+  flex: 1;
+  padding: 12px 40px 12px 16px;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.staff-date-icon {
+  position: absolute;
+  right: 12px;
+  font-size: 18px;
+}
+
+.staff-reason-textarea {
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.staff-submit-request-btn {
+  padding: 12px 24px;
+  background-color: #0056b3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.staff-submit-request-btn:hover {
+  background-color: #004494;
+}
+
+/* Leave Requests List */
+.staff-leave-requests-section {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.staff-leave-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.staff-leave-request-card {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.staff-leave-request-dates {
+  flex: 1;
+  font-size: 14px;
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.staff-leave-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.staff-leave-status.pending {
+  background-color: #ffd700;
+  color: #856404;
+}
+
+.staff-leave-request-reason {
+  font-size: 13px;
+  color: #666;
+  margin-top: 8px;
+  display: block;
+  width: 100%;
+}
+
+/* Messages and Profile */
+.staff-messages-content,
+.staff-profile-content {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .staff-leave-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .staff-page {
+    padding: 24px;
+  }
+  
+  .staff-action-buttons {
+    flex-direction: column;
+  }
+}
+
