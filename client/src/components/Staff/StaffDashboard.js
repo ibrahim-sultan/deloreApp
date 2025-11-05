@@ -10,6 +10,7 @@ import PayStubsPage from './pages/PayStubsPage';
 import RequestLeavePage from './pages/RequestLeavePage';
 import MessagesPage from './pages/MessagesPage';
 import ProfileSecurityPage from './pages/ProfileSecurityPage';
+import DocumentsPage from './pages/DocumentsPage';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import PasswordChange from '../Auth/PasswordChange';
 import './StaffDashboard.css';
@@ -108,6 +109,7 @@ const StaffDashboard = () => {
           <Route path="/paystubs" element={<PayStubsPage />} />
           <Route path="/leave" element={<RequestLeavePage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/profile" element={<ProfileSecurityPage />} />
           <Route path="/" element={<DashboardPage />} />
         </Routes>

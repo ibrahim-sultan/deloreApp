@@ -367,99 +367,6 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Clock in to task
-router.post('/:id/clock-in', auth, async (req, res) => {
-  try {
-    const task = await Task.findById(req.params.id);
-
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Check if user is assigned to this task
-    if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'You are not assigned to this task' });
-    }
-
-    // Check if already clocked in
-    if (task.clockInTime) {
-      return res.status(400).json({ message: 'Already clocked in to this task' });
-    }
-
-    task.clockInTime = new Date();
-    task.status = 'in-progress';
-    await task.save();
-
-    res.json({
-      message: 'Clocked in successfully',
-      task: {
-        id: task._id,
-        clockInTime: task.clockInTime,
-        status: task.status
-      }
-    });
-  } catch (error) {
-    console.error('Clock in error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Clock out from task
-router.post('/:id/clock-out', auth, [
-  body('workSummary').optional().trim()
-], async (req, res) => {
-  try {
-    const task = await Task.findById(req.params.id);
-
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-
-    // Check if user is assigned to this task
-    if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'You are not assigned to this task' });
-    }
-
-    // Check if clocked in
-    if (!task.clockInTime) {
-      return res.status(400).json({ message: 'You must clock in before clocking out' });
-    }
-
-    // Check if already clocked out
-    if (task.clockOutTime) {
-      return res.status(400).json({ message: 'Already clocked out of this task' });
-    }
-
-    task.clockOutTime = new Date();
-    task.status = 'completed';
-    
-    // Calculate hours spent
-    const clockInTime = new Date(task.clockInTime);
-    const clockOutTime = new Date(task.clockOutTime);
-    task.hoursSpent = (clockOutTime - clockInTime) / (1000 * 60 * 60); // Convert to hours
-
-    // Add work summary if provided
-    if (req.body.workSummary) {
-      task.workSummary = req.body.workSummary;
-    }
-
-    await task.save();
-
-    res.json({
-      message: 'Clocked out successfully',
-      task: {
-        id: task._id,
-        clockInTime: task.clockInTime,
-        clockOutTime: task.clockOutTime,
-        hoursSpent: task.hoursSpent,
-        status: task.status
-      }
-    });
-  } catch (error) {
-    console.error('Clock out error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 // Haversine distance in meters
 function distanceMeters(lat1, lon1, lat2, lon2) {
@@ -474,19 +381,31 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Staff clock-in with geofence (<= 500m from assigned location)
+// Staff clock-in: must be assigned user, within ±30 mins of scheduled start, and within 500m of coordinates
 router.post('/:id/clock-in', auth, async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
-    // Only assignee or creator can clock in
-    const isOwner = task.createdBy?.toString() === req.user._id.toString();
-    const isAssignee = task.assignedTo?.toString() === req.user._id.toString();
-    if (!isOwner && !isAssignee) return res.status(403).json({ message: 'Access denied' });
+    // Only assigned staff can clock in
+    if (!task.assignedTo || task.assignedTo.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not assigned to this task' });
+    }
 
     if (task.clockInTime) return res.status(400).json({ message: 'Already clocked in' });
 
+    // Time window check: ±30 minutes around scheduledStartTime
+    if (!task.scheduledStartTime) {
+      return res.status(400).json({ message: 'This task does not have a scheduled start time set' });
+    }
+    const now = Date.now();
+    const start = new Date(task.scheduledStartTime).getTime();
+    const windowMs = 30 * 60 * 1000;
+    if (now < (start - windowMs) || now > (start + windowMs)) {
+      return res.status(400).json({ message: 'You can only clock in within 30 minutes before or after the scheduled start time' });
+    }
+
+    // Geofence: must be within 500m if coordinates exist
     const { latitude, longitude } = req.body || {};
     if (task.coordinates?.latitude != null && task.coordinates?.longitude != null) {
       if (latitude == null || longitude == null) {
@@ -512,36 +431,27 @@ router.post('/:id/clock-in', auth, async (req, res) => {
   }
 });
 
-// Staff clock-out with geofence (>= 500m away from assigned location)
+// Staff clock-out: must be assigned user and provide workSummary
 router.post('/:id/clock-out', auth, async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
-    const isOwner = task.createdBy?.toString() === req.user._id.toString();
-    const isAssignee = task.assignedTo?.toString() === req.user._id.toString();
-    if (!isOwner && !isAssignee) return res.status(403).json({ message: 'Access denied' });
+    if (!task.assignedTo || task.assignedTo.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You are not assigned to this task' });
+    }
 
     if (!task.clockInTime) return res.status(400).json({ message: 'Not clocked in yet' });
     if (task.clockOutTime) return res.status(400).json({ message: 'Already clocked out' });
 
-    const { latitude, longitude, workSummary } = req.body || {};
-    if (task.coordinates?.latitude != null && task.coordinates?.longitude != null) {
-      if (latitude == null || longitude == null) {
-        return res.status(400).json({ message: 'Missing current coordinates' });
-      }
-      const dist = distanceMeters(
-        parseFloat(latitude), parseFloat(longitude),
-        task.coordinates.latitude, task.coordinates.longitude
-      );
-      if (dist < 500) {
-        return res.status(400).json({ message: 'Must be at least 500m away from assigned location to check out' });
-      }
+    const { workSummary } = req.body || {};
+    if (!workSummary || !String(workSummary).trim()) {
+      return res.status(400).json({ message: 'Work summary is required to clock out' });
     }
 
     task.clockOutTime = new Date();
     task.status = 'completed';
-    if (workSummary) task.workSummary = workSummary;
+    task.workSummary = String(workSummary).trim();
 
     const hoursSpent = (task.clockOutTime - new Date(task.clockInTime)) / (1000 * 60 * 60);
     task.hoursSpent = parseFloat(hoursSpent.toFixed(2));

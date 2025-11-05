@@ -38,6 +38,7 @@ const StaffSidebar = ({ isOpen, onClose }) => {
   const menuItems = [
     { name: 'Dashboard', icon: 'house-fill', path: '/staff/dashboard' },
     { name: 'Schedule', icon: 'calendar-fill', path: '/staff/schedule' },
+    { name: 'Documents', icon: 'file-text-fill', path: '/staff/documents' },
     { name: 'Pay Stubs', icon: 'dollar-sign', path: '/staff/paystubs' },
     { name: 'Request Leave', icon: 'umbrella-fill', path: '/staff/leave' },
     { name: 'Messages', icon: 'chat-fill', path: '/staff/messages' },

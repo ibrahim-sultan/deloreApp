@@ -29,10 +29,46 @@ const DashboardPage = () => {
     }
   };
 
-  const handleClockIn = async (taskId) => {
+  const haversine = (lat1, lon1, lat2, lon2) => {
+    const toRad = (x) => x * Math.PI / 180;
+    const R = 6371000; // meters
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const handleClockIn = async (task) => {
+    const taskId = task.id || task._id;
     try {
       setProcessing(taskId);
+
+      // Optional client-side checks (server also enforces)
+      if (task.scheduledStartTime) {
+        const start = new Date(task.scheduledStartTime).getTime();
+        const now = Date.now();
+        const windowMs = 30 * 60 * 1000;
+        if (now < (start - windowMs) || now > (start + windowMs)) {
+          alert('You can only check in within 30 minutes before or after the scheduled start time.');
+          setProcessing(null);
+          return;
+        }
+      }
+
       const coords = await getCurrentCoords();
+
+      if (task.coordinates?.latitude != null && task.coordinates?.longitude != null) {
+        const dist = haversine(coords.latitude, coords.longitude, task.coordinates.latitude, task.coordinates.longitude);
+        if (dist > 500) {
+          alert(`You are too far from the assigned location (${Math.round(dist)}m). Move within 500m to check in.`);
+          setProcessing(null);
+          return;
+        }
+      }
+
       await axios.post(`/api/tasks/${taskId}/clock-in`, coords);
       alert('Clocked in successfully!');
       fetchTasks(); // Refresh tasks
@@ -149,7 +185,7 @@ const DashboardPage = () => {
                 {!task.clockInTime ? (
                   <button 
                     className="staff-action-btn primary green"
-                    onClick={() => handleClockIn(task.id || task._id)}
+                    onClick={() => handleClockIn(task)}
                     disabled={processing === (task.id || task._id)}
                   >
                     <span>✓</span> {processing === (task.id || task._id) ? 'Checking in...' : 'Check In'}

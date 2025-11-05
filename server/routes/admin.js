@@ -815,6 +815,73 @@ router.get('/staff-logs/:staffId', adminAuth, async (req, res) => {
   }
 });
 
+// Admin documents - list all
+router.get('/documents', adminAuth, async (req, res) => {
+  try {
+    const documents = await Document.find()
+      .populate('uploadedBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ documents });
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin documents - download
+router.get('/documents/:id/download', adminAuth, async (req, res) => {
+  try {
+    const doc = await Document.findById(req.params.id);
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    if (!doc.filePath || !fs.existsSync(doc.filePath)) {
+      return res.status(404).json({ message: 'File not found on server' });
+    }
+    res.download(doc.filePath, doc.originalName);
+  } catch (error) {
+    console.error('Admin download document error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin documents - delete
+router.delete('/documents/:id', adminAuth, async (req, res) => {
+  try {
+    const doc = await Document.findById(req.params.id);
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
+    try {
+      if (doc.filePath && fs.existsSync(doc.filePath)) fs.unlinkSync(doc.filePath);
+    } catch (e) {
+      console.warn('Failed to delete file from disk:', e.message);
+    }
+    await Document.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Admin delete document error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin documents - bulk delete expired
+router.delete('/documents/expired/bulk', adminAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const expired = await Document.find({ expiryDate: { $lt: now } });
+    let deleted = 0;
+    for (const doc of expired) {
+      try {
+        if (doc.filePath && fs.existsSync(doc.filePath)) fs.unlinkSync(doc.filePath);
+      } catch (_) { /* ignore */ }
+      await Document.findByIdAndDelete(doc._id);
+      deleted++;
+    }
+    res.json({ message: 'Expired documents deleted', deleted });
+  } catch (error) {
+    console.error('Admin bulk delete expired error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get all clients
 router.get('/clients', adminAuth, async (req, res) => {
   try {
