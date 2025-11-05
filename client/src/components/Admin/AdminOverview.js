@@ -43,6 +43,13 @@ const AdminOverview = ({ data, onUpdate }) => {
             <div className="stat-label-new">Total Staff</div>
           </div>
         </div>
+        <div className="stat-card-new teal clickable" onClick={() => navigate('/admin/documents')} title="View documents by staff">
+          <div className="stat-icon">📄</div>
+          <div className="stat-content">
+            <div className="stat-number-new">{statistics.totalDocuments}</div>
+            <div className="stat-label-new">Total Documents</div>
+          </div>
+        </div>
         <div className="stat-card-new purple clickable" onClick={() => navigate('/admin/tasks')} title="View task assignments">
           <div className="stat-icon">📋</div>
           <div className="stat-content">
