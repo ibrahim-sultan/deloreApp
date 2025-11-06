@@ -67,11 +67,15 @@ router.post('/send', adminAuth, [
 router.get('/inbox', auth, async (req, res) => {
   try {
     console.log('Fetching messages for user:', req.user._id, 'with role:', req.user.role);
-    const folder = (req.query.folder || 'inbox').toLowerCase();
+    // For admins, default to 'all' so they see conversations they participate in (sent or received)
+    const defaultFolder = req.user.role === 'admin' ? 'all' : 'inbox';
+    const folder = (req.query.folder || defaultFolder).toLowerCase();
 
     let query;
     if (folder === 'sent') {
       query = { sender: req.user._id };
+    } else if (folder === 'all') {
+      query = { $or: [ { sender: req.user._id }, { recipient: req.user._id } ] };
     } else {
       // default to inbox (messages received by the user)
       query = { recipient: req.user._id };
