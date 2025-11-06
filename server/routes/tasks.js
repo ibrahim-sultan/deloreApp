@@ -419,7 +419,7 @@ router.post('/:id/clock-in', auth, async (req, res) => {
   }
 });
 
-// Staff clock-out: must be assigned user and provide workSummary
+  // Staff clock-out: must be assigned user and provide workSummary
 router.post('/:id/clock-out', auth, async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -445,6 +445,21 @@ router.post('/:id/clock-out', auth, async (req, res) => {
     task.hoursSpent = parseFloat(hoursSpent.toFixed(2));
 
     await task.save();
+
+    // Also create a DailyReport entry so it appears in Admin Daily Reports
+    try {
+      const DailyReport = require('../models/DailyReport');
+      const report = new DailyReport({
+        staffMember: req.user._id,
+        content: task.workSummary,
+        date: new Date(),
+        task: task._id,
+        taskTitle: task.title
+      });
+      await report.save();
+    } catch (repErr) {
+      console.warn('Failed to create DailyReport on clock-out:', repErr.message);
+    }
 
     res.json({ message: 'Clock-out successful', clockOutTime: task.clockOutTime, hoursSpent: task.hoursSpent });
   } catch (error) {

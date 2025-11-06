@@ -63,29 +63,27 @@ router.post('/send', adminAuth, [
   }
 });
 
-// Get messages for current user
+// Get messages for current user (supports folders: inbox or sent)
 router.get('/inbox', auth, async (req, res) => {
   try {
     console.log('Fetching messages for user:', req.user._id, 'with role:', req.user.role);
-    
-    let messages;
-    
-    if (req.user.role === 'staff') {
-      // Staff can only see messages sent to them
-      messages = await Message.find({ recipient: req.user._id })
-        .populate('sender', 'name email')
-        .populate('replies.from', 'name email')
-        .sort({ createdAt: -1 });
-      console.log('Found', messages.length, 'messages for staff user', req.user._id);
+    const folder = (req.query.folder || 'inbox').toLowerCase();
+
+    let query;
+    if (folder === 'sent') {
+      query = { sender: req.user._id };
     } else {
-      // Admin can see all messages they sent
-      messages = await Message.find({ sender: req.user._id })
-        .populate('recipient', 'name email')
-        .populate('replies.from', 'name email')
-        .sort({ createdAt: -1 });
-      console.log('Found', messages.length, 'sent messages for admin user', req.user._id);
+      // default to inbox (messages received by the user)
+      query = { recipient: req.user._id };
     }
 
+    const messages = await Message.find(query)
+      .populate('sender', 'name email')
+      .populate('recipient', 'name email')
+      .populate('replies.from', 'name email')
+      .sort({ createdAt: -1 });
+
+    console.log('Found', messages.length, folder, 'messages for user', req.user._id);
     res.json({ messages });
   } catch (error) {
     console.error('Get messages error:', error);
