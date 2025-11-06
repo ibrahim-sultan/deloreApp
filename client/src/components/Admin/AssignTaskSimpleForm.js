@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import MapPreview from './MapPreview';
 
 const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) => {
   const [staffId, setStaffId] = useState('');
@@ -13,40 +12,12 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
   const [error, setError] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
-  const [geocoding, setGeocoding] = useState(false);
-  const [geoError, setGeoError] = useState('');
 
   const selectedClient = clients.find(c => c._id === clientId);
-  const clientAddress = selectedClient?.address || '';
-
-  const geocodeAddress = async (address) => {
-    if (!address) {
-      setGeoError('No address to geocode');
-      return;
-    }
-    setGeoError('');
-    setGeocoding(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        setLatitude(String(data[0].lat));
-        setLongitude(String(data[0].lon));
-      } else {
-        setGeoError('Unable to find coordinates for this address');
-      }
-    } catch (e) {
-      setGeoError('Geocoding failed');
-    } finally {
-      setGeocoding(false);
-    }
-  };
 
   const useMyLocation = () => {
-    setGeoError('');
     if (!navigator.geolocation) {
-      setGeoError('Geolocation not supported by this browser');
+      setError('Geolocation not supported by this browser');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -54,7 +25,7 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
         setLatitude(String(pos.coords.latitude));
         setLongitude(String(pos.coords.longitude));
       },
-      (err) => setGeoError(err.message || 'Failed to get current location'),
+      (err) => setError(err.message || 'Failed to get current location'),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
@@ -235,39 +206,7 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
         </div>
       </div>
 
-      {/* Address + Map preview */}
-      {clientAddress && (
-        <div className="form-field full-width">
-          <label className="field-label">
-            <span className="field-icon">📍</span>
-            Client Address
-          </label>
-          <div className="input-wrapper">
-            <input
-              type="text"
-              className="form-input"
-              value={clientAddress}
-              readOnly
-            />
-          </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secondary" disabled={!clientAddress || geocoding} onClick={() => geocodeAddress(clientAddress)}>
-              {geocoding ? 'Locating…' : 'Use address to fill coordinates'}
-            </button>
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clientAddress)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-secondary"
-            >Open in Google Maps</a>
-            <button type="button" className="btn btn-secondary" onClick={useMyLocation}>Use my location</button>
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <MapPreview address={clientAddress} />
-          </div>
-          {geoError && <div className="alert alert-error" style={{ marginTop: 8 }}>{geoError}</div>}
-        </div>
-      )}
+      {/* Removed address display from admin UI per request */}
 
         {/* Task Location (Geofence) */}
         <div className="form-grid">
@@ -308,6 +247,9 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
               <span className="input-icon">🌐</span>
             </div>
           </div>
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <button type="button" className="btn btn-secondary" onClick={useMyLocation}>Use my location</button>
         </div>
 
         <div className="checkbox-field">

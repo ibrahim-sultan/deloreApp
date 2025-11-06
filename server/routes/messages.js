@@ -170,9 +170,10 @@ router.post('/:id/reply', auth, [
       return res.status(404).json({ message: 'Message not found' });
     }
 
-    // Check if user is sender or recipient
-    if (message.sender.toString() !== req.user._id.toString() && 
-        message.recipient.toString() !== req.user._id.toString()) {
+    // Check if user is sender or recipient (handle populated or ObjectId)
+    const senderId = message.sender && message.sender._id ? message.sender._id.toString() : message.sender.toString();
+    const recipientId = message.recipient && message.recipient._id ? message.recipient._id.toString() : message.recipient.toString();
+    if (senderId !== req.user._id.toString() && recipientId !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
