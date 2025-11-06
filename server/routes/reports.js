@@ -54,7 +54,19 @@ router.get('/my-reports', auth, async (req, res) => {
 // Get all daily reports (Admin)
 router.get('/all', adminAuth, async (req, res) => {
   try {
-    const reports = await DailyReport.find()
+    const { staffId, date } = req.query;
+    const query = {};
+    if (staffId) query.staffMember = staffId;
+    if (date) {
+      // match same calendar day
+      const start = new Date(date);
+      start.setHours(0,0,0,0);
+      const end = new Date(start);
+      end.setHours(23,59,59,999);
+      query.date = { $gte: start, $lte: end };
+    }
+
+    const reports = await DailyReport.find(query)
       .populate('staffMember', 'name email')
       .populate('task', 'title')
       .sort({ createdAt: -1 })

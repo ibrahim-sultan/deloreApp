@@ -18,10 +18,26 @@ const DailyReportsManagement = () => {
     fetchStaffMembers();
   }, []);
 
-  const fetchReports = async () => {
+  const fetchReports = async (customFilter = null) => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/reports/all', {
+      const params = new URLSearchParams();
+      
+      // Use custom filter if provided, otherwise use current state
+      const currentStaffFilter = customFilter?.staffId !== undefined ? customFilter.staffId : staffFilter;
+      const currentDateFilter = customFilter?.date !== undefined ? customFilter.date : dateFilter;
+      
+      if (currentStaffFilter) {
+        params.append('staffId', currentStaffFilter);
+      }
+      if (currentDateFilter) {
+        params.append('date', currentDateFilter);
+      }
+      
+      const queryString = params.toString();
+      const url = queryString ? `/api/reports/all?${queryString}` : '/api/reports/all';
+      
+      const response = await axios.get(url, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       setReports(response.data.reports || []);
@@ -49,26 +65,24 @@ const DailyReportsManagement = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  const getFilteredReports = () => {
-    let filtered = reports;
+  // Apply filters on the server-side now, so we just return all reports
+  const getFilteredReports = () => reports;
 
-    // Filter by staff
-    if (staffFilter) {
-      filtered = filtered.filter(report => 
-        report.staffMember?._id === staffFilter
-      );
-    }
+  // Filter change handlers that trigger new API calls
+  const handleStaffFilterChange = (value) => {
+    setStaffFilter(value);
+    fetchReports({ staffId: value, date: dateFilter });
+  };
 
-    // Filter by date
-    if (dateFilter) {
-      filtered = filtered.filter(report => {
-        const reportDate = new Date(report.date).toDateString();
-        const filterDate = new Date(dateFilter).toDateString();
-        return reportDate === filterDate;
-      });
-    }
+  const handleDateFilterChange = (value) => {
+    setDateFilter(value);
+    fetchReports({ staffId: staffFilter, date: value });
+  };
 
-    return filtered;
+  const handleClearFilters = () => {
+    setStaffFilter('');
+    setDateFilter('');
+    fetchReports({ staffId: '', date: '' });
   };
 
   if (loading) {
@@ -93,7 +107,7 @@ const DailyReportsManagement = () => {
           <select
             id="staffFilter"
             value={staffFilter}
-            onChange={(e) => setStaffFilter(e.target.value)}
+            onChange={(e) => handleStaffFilterChange(e.target.value)}
             className="form-input"
           >
             <option value="">All Staff</option>
@@ -111,17 +125,14 @@ const DailyReportsManagement = () => {
             id="dateFilter"
             type="date"
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            onChange={(e) => handleDateFilterChange(e.target.value)}
             className="form-input"
           />
         </div>
 
         <button
           className="btn btn-secondary"
-          onClick={() => {
-            setStaffFilter('');
-            setDateFilter('');
-          }}
+          onClick={handleClearFilters}
         >
           Clear Filters
         </button>

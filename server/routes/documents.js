@@ -190,13 +190,22 @@ router.get('/:id/download', auth, async (req, res) => {
       console.log('Admin access granted');
     }
 
-    if (!document.filePath || !fs.existsSync(document.filePath)) {
-      console.log('File not found on filesystem:', document.filePath);
+    // Resolve file path: prefer stored absolute path, else reconstruct from filename
+    let resolvedPath = document.filePath;
+    if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+      const altPath = path.join(__dirname, '../uploads/documents', document.filename || '');
+      if (fs.existsSync(altPath)) {
+        resolvedPath = altPath;
+      }
+    }
+
+    if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+      console.log('File not found on filesystem (checked both paths):', document.filePath, 'alt:', path.join(__dirname, '../uploads/documents', document.filename || ''));
       return res.status(404).json({ message: 'File not found on server' });
     }
 
-    console.log('Sending file for download');
-    res.download(document.filePath, document.originalName);
+    console.log('Sending file for download from', resolvedPath);
+    res.download(resolvedPath, document.originalName);
   } catch (error) {
     console.error('Download document error:', error);
     res.status(500).json({ message: 'Server error during download' });
@@ -236,11 +245,21 @@ router.delete('/:id', auth, async (req, res) => {
 
     // Delete file from filesystem
     try {
+      let deletedFrom = null;
       if (document.filePath && fs.existsSync(document.filePath)) {
         console.log('Deleting file from filesystem:', document.filePath);
         fs.unlinkSync(document.filePath);
+        deletedFrom = document.filePath;
       } else {
-        console.log('File not found on filesystem, continuing with database deletion');
+        // Try alternate constructed path
+        const altPath = path.join(__dirname, '../uploads/documents', document.filename || '');
+        if (fs.existsSync(altPath)) {
+          console.log('Deleting file from alt path:', altPath);
+          fs.unlinkSync(altPath);
+          deletedFrom = altPath;
+        } else {
+          console.log('File not found on filesystem, continuing with database deletion');
+        }
       }
     } catch (fileError) {
       console.error('Error deleting file from filesystem:', fileError);

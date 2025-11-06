@@ -15,8 +15,14 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     temporaryPassword: ''
   });
   const [createLoading, setCreateLoading] = useState(false);
+
+  // Admin creation modal state
+  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [createAdminData, setCreateAdminData] = useState({ name: '', email: '', password: '' });
+  const [createAdminLoading, setCreateAdminLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [resetLoadingId, setResetLoadingId] = useState(null);
 
   const fetchStaffDetails = async (staffId) => {
     try {
@@ -92,6 +98,40 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     setError('');
   };
 
+  const handleCreateAdminChange = (e) => {
+    setCreateAdminData({ ...createAdminData, [e.target.name]: e.target.value });
+  };
+
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    setCreateAdminLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { data } = await axios.post('/api/admin/admins', createAdminData);
+      setSuccess(`Admin created: ${data.admin.email}`);
+      setShowCreateAdmin(false);
+      setCreateAdminData({ name: '', email: '', password: '' });
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to create admin');
+    } finally {
+      setCreateAdminLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (staffId) => {
+    try {
+      setResetLoadingId(staffId);
+      setError('');
+      const { data } = await axios.post(`/api/admin/staff/${staffId}/reset-password`);
+      setSuccess(`Temporary password for ${data.temporaryCredentials.email}: ${data.temporaryCredentials.temporaryPassword}`);
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setResetLoadingId(null);
+    }
+  };
+
   const handleDeleteStaff = async (staffId) => {
     setDeleteLoading(true);
     setError('');
@@ -135,6 +175,13 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
             onClick={() => setShowCreateModal(true)}
           >
             + Add New Staff
+          </button>
+          <button
+            className="btn"
+            style={{ marginLeft: '8px' }}
+            onClick={() => setShowCreateAdmin(true)}
+          >
+            + Add Admin
           </button>
         </div>
       </div>
@@ -180,6 +227,14 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
                 {staff.isActive ? 'Deactivate' : 'Activate'}
               </button>
               <button
+                className="btn btn-small"
+                onClick={() => handleResetPassword(staff._id)}
+                disabled={resetLoadingId === staff._id}
+                title="Generate a temporary password for this staff"
+              >
+                {resetLoadingId === staff._id ? 'Resetting...' : 'Reset Password'}
+              </button>
+              <button
                 className="btn btn-small btn-danger"
                 onClick={() => confirmDelete(staff)}
                 title="Delete Staff Member"
@@ -200,6 +255,38 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
           <div className="empty-state-icon">👥</div>
           <h3 className="empty-state-title">No Staff Members</h3>
           <p className="empty-state-text">Staff members will appear here once they register</p>
+        </div>
+      )}
+
+      {/* Create Admin Modal */}
+      {showCreateAdmin && (
+        <div className="modal-overlay" onClick={() => setShowCreateAdmin(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Create Admin</h2>
+              <button className="close-button" onClick={() => setShowCreateAdmin(false)}>×</button>
+            </div>
+            <form onSubmit={handleCreateAdmin} className="form-grid">
+              <div className="form-group">
+                <label>Name</label>
+                <input name="name" type="text" value={createAdminData.name} onChange={handleCreateAdminChange} required />
+              </div>
+              <div className="form-group">
+                <label>Email</label>
+                <input name="email" type="email" value={createAdminData.email} onChange={handleCreateAdminChange} required />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input name="password" type="password" value={createAdminData.password} onChange={handleCreateAdminChange} required minLength={6} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateAdmin(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={createAdminLoading}>
+                  {createAdminLoading ? 'Creating...' : 'Create Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

@@ -459,6 +459,84 @@ router.get('/staff', adminAuth, async (req, res) => {
   }
 });
 
+// Create another admin
+router.post('/admins', adminAuth, [
+  body('name').trim().isLength({ min: 1 }).withMessage('Admin name is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, password } = req.body;
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'A user with this email already exists' });
+    }
+
+    const admin = new User({ name, email, password, role: 'admin', isActive: true });
+    await admin.save();
+
+    res.status(201).json({
+      message: 'Admin user created successfully',
+      admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role }
+    });
+  } catch (error) {
+    console.error('Error creating admin:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// List admins (for management UI)
+router.get('/admins', adminAuth, async (_req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' })
+      .select('name email isActive createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ admins });
+  } catch (error) {
+    console.error('Error listing admins:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Reset staff password (generate temporary password)
+router.post('/staff/:staffId/reset-password', adminAuth, async (req, res) => {
+  try {
+    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' });
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+
+    // Generate a secure temporary password
+    const generateTemp = () => {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+      let out = '';
+      for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+      return out;
+    };
+    const temporaryPassword = generateTemp();
+
+    staff.password = temporaryPassword; // will be hashed by pre-save hook
+    staff.isTemporaryPassword = true;
+    staff.temporaryPasswordExpiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days
+    await staff.save();
+
+    res.json({
+      message: 'Temporary password generated successfully',
+      temporaryCredentials: { email: staff.email, temporaryPassword }
+    });
+  } catch (error) {
+    console.error('Error resetting staff password:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get all assigned tasks with staff details
 router.get('/assigned-tasks', adminAuth, async (req, res) => {
   try {
