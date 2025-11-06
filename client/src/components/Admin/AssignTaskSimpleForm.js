@@ -10,25 +10,9 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
   const [recurring, setRecurring] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
 
   const selectedClient = clients.find(c => c._id === clientId);
 
-  const useMyLocation = () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation not supported by this browser');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(String(pos.coords.latitude));
-        setLongitude(String(pos.coords.longitude));
-      },
-      (err) => setError(err.message || 'Failed to get current location'),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
-  };
 
   const toDateTime = (d, t) => (d && t ? `${d}T${t}` : '');
 
@@ -49,8 +33,8 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
     if (saving) return;
     
     // Validate required fields
-    if (!staffId || !clientId || !date || !startTime || !endTime || !latitude || !longitude) {
-      setError('Please fill in all required fields, including latitude and longitude');
+    if (!staffId || !clientId || !date || !startTime || !endTime) {
+      setError('Please fill in all required fields');
       return;
     }
     
@@ -78,8 +62,6 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
       form.append('description', `Task assigned to ${selectedStaff?.name || 'staff member'} for ${selectedClient?.name || 'client'}`);
       form.append('location', selectedClient?.address || 'TBD');
       form.append('contactPerson', selectedClient?.contactNumber || 'N/A');
-      form.append('latitude', latitude);
-      form.append('longitude', longitude);
       form.append('scheduledStartTime', scheduledStartTime);
       form.append('scheduledEndTime', scheduledEndTime);
       form.append('totalHours', totalHours);
@@ -208,49 +190,6 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
 
       {/* Removed address display from admin UI per request */}
 
-        {/* Task Location (Geofence) */}
-        <div className="form-grid">
-          <div className="form-field">
-            <label className="field-label">
-              <span className="field-icon">📍</span>
-              Task Latitude (required for 500m geofence)
-            </label>
-            <div className="input-wrapper">
-              <input
-                type="number"
-                step="any"
-                value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
-                className="form-input"
-                required
-                placeholder="e.g., 6.5244"
-              />
-              <span className="input-icon">🌐</span>
-            </div>
-          </div>
-
-          <div className="form-field">
-            <label className="field-label">
-              <span className="field-icon">📍</span>
-              Task Longitude (required for 500m geofence)
-            </label>
-            <div className="input-wrapper">
-              <input
-                type="number"
-                step="any"
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                className="form-input"
-                required
-                placeholder="e.g., 3.3792"
-              />
-              <span className="input-icon">🌐</span>
-            </div>
-          </div>
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <button type="button" className="btn btn-secondary" onClick={useMyLocation}>Use my location</button>
-        </div>
 
         <div className="checkbox-field">
           <label className="checkbox-label">

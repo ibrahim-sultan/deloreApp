@@ -271,8 +271,8 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
     }),
   body('description').trim().isLength({ min: 1 }).withMessage('Description is required'),
   body('location').trim().isLength({ min: 1 }).withMessage('Location is required'),
-  body('latitude').isNumeric().withMessage('Latitude must be a number'),
-  body('longitude').isNumeric().withMessage('Longitude must be a number'),
+  body('latitude').optional().isNumeric().withMessage('Latitude must be a number'),
+  body('longitude').optional().isNumeric().withMessage('Longitude must be a number'),
   body('contactPerson').trim().isLength({ min: 1 }).withMessage('Contact person is required'),
   body('scheduledStartTime').isISO8601().withMessage('Valid start time is required'),
   body('scheduledEndTime').isISO8601().withMessage('Valid end time is required')
@@ -333,10 +333,6 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       title,
       description,
       location,
-      coordinates: {
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude)
-      },
       contactPerson,
       scheduledStartTime,
       scheduledEndTime,
@@ -346,6 +342,15 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       client: clientId,
       status: 'assigned'
     };
+
+    // Only set coordinates if provided
+    if (latitude !== undefined && longitude !== undefined) {
+      const lat = parseFloat(latitude);
+      const lon = parseFloat(longitude);
+      if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+        taskData.coordinates = { latitude: lat, longitude: lon };
+      }
+    }
     
     // Add attachment info if file was uploaded
     if (req.file) {
