@@ -10,27 +10,29 @@ const MessageManagement = ({ staffMembers, onUpdate }) => {
     content: ''
   });
   const [sending, setSending] = useState(false);
-  const [sentMessages, setSentMessages] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [folder, setFolder] = useState('all'); // 'inbox' | 'sent' | 'all'
 
   React.useEffect(() => {
-    fetchSentMessages();
-  }, []);
+    fetchMessages(folder);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folder]);
 
-  const fetchSentMessages = async () => {
+  const fetchMessages = async (which = 'all') => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/messages/inbox');
-      setSentMessages(response.data.messages || []);
+      const response = await axios.get(`/api/messages/inbox?folder=${encodeURIComponent(which)}`);
+      setMessages(response.data.messages || []);
+      setError('');
     } catch (error) {
-      setError('Failed to load sent messages');
+      setError('Failed to load messages');
     } finally {
       setLoading(false);
     }
   };
-
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
@@ -53,7 +55,7 @@ const MessageManagement = ({ staffMembers, onUpdate }) => {
         content: ''
       });
       setShowMessageForm(false);
-      fetchSentMessages();
+      fetchMessages(folder);
       onUpdate();
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to send message';
@@ -173,30 +175,50 @@ const MessageManagement = ({ staffMembers, onUpdate }) => {
       )}
 
       <div className="messages-section">
-        <h3>Sent Messages ({sentMessages.length})</h3>
+        <div className="messages-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <h3 style={{ marginRight: 'auto' }}>Messages</h3>
+          <div className="folder-switch" role="tablist" aria-label="Message folders">
+            <button
+              className={`btn btn-secondary ${folder === 'inbox' ? 'active' : ''}`}
+              onClick={() => setFolder('inbox')}
+              role="tab"
+              aria-selected={folder === 'inbox'}
+            >Inbox</button>
+            <button
+              className={`btn btn-secondary ${folder === 'sent' ? 'active' : ''}`}
+              onClick={() => setFolder('sent')}
+              role="tab"
+              aria-selected={folder === 'sent'}
+            >Sent</button>
+            <button
+              className={`btn btn-secondary ${folder === 'all' ? 'active' : ''}`}
+              onClick={() => setFolder('all')}
+              role="tab"
+              aria-selected={folder === 'all'}
+            >All</button>
+          </div>
+        </div>
         
         {loading ? (
-          <div className="loading">Loading sent messages...</div>
-        ) : sentMessages.length === 0 ? (
+          <div className="loading">Loading messages...</div>
+        ) : messages.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">📧</div>
-            <h3 className="empty-state-title">No Messages Sent</h3>
-            <p className="empty-state-text">Messages you send to staff will appear here</p>
+            <h3 className="empty-state-title">No Messages</h3>
+            <p className="empty-state-text">No messages in this folder</p>
           </div>
         ) : (
           <div className="messages-list">
-            {sentMessages.map(message => (
+            {messages.map(message => (
               <div key={message._id} className="message-item">
                 <div className="message-header">
                   <h4 className="message-subject">{message.subject}</h4>
                   <span className="message-date">{formatDate(message.createdAt)}</span>
                 </div>
                 
-                <div className="message-recipient">
-                  <strong>{message.sender?._id === message.recipient?._id ? 'Participant' : (message.sender?._id !== undefined && message.recipient?._id !== undefined && message.sender?._id === (message.recipient?._id) ? 'To' : (message.recipient?._id ? 'To' : 'To'))}:</strong> {message.recipient?.name} ({message.recipient?.email})
-                </div>
-                <div className="message-sender">
-                  <strong>From:</strong> {message.sender?.name} ({message.sender?.email})
+                <div className="message-parties" style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <div className="message-sender"><strong>From:</strong> {message.sender?.name} ({message.sender?.email})</div>
+                  <div className="message-recipient"><strong>To:</strong> {message.recipient?.name} ({message.recipient?.email})</div>
                 </div>
                 
                 <div className="message-content-preview">
@@ -222,32 +244,32 @@ const MessageManagement = ({ staffMembers, onUpdate }) => {
       </div>
 
       {/* Message Statistics */}
-      {sentMessages.length > 0 && (
+      {messages.length > 0 && (
         <div className="message-stats mt-4">
           <div className="card">
             <h3>Message Statistics</h3>
             <div className="summary-stats">
               <div className="summary-item">
-                <span className="summary-label">Total Sent:</span>
-                <span className="summary-value">{sentMessages.length}</span>
+                <span className="summary-label">Total:</span>
+                <span className="summary-value">{messages.length}</span>
               </div>
               <div className="summary-item">
                 <span className="summary-label">Read:</span>
                 <span className="summary-value">
-                  {sentMessages.filter(m => m.isRead).length}
+                  {messages.filter(m => m.isRead).length}
                 </span>
               </div>
               <div className="summary-item">
                 <span className="summary-label">Unread:</span>
                 <span className="summary-value">
-                  {sentMessages.filter(m => !m.isRead).length}
+                  {messages.filter(m => !m.isRead).length}
                 </span>
               </div>
               <div className="summary-item">
                 <span className="summary-label">Response Rate:</span>
                 <span className="summary-value">
-                  {sentMessages.length > 0 
-                    ? Math.round((sentMessages.filter(m => m.isRead).length / sentMessages.length) * 100)
+                  {messages.length > 0 
+                    ? Math.round((messages.filter(m => m.isRead).length / messages.length) * 100)
                     : 0
                   }%
                 </span>
