@@ -6,15 +6,7 @@ const { auth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
-
-function getTransporter() {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
-}
+const { sendMail } = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -126,14 +118,12 @@ router.post('/create', auth, upload.single('attachment'), [
 
     await task.save();
 
-    // Send assignment email if assigned
+    // Send assignment email if assigned (Postmark)
     try {
       if (assignedTo) {
         const assignee = await User.findById(assignedTo);
-        const transporter = getTransporter();
-        if (assignee && transporter) {
-          await transporter.sendMail({
-            from: process.env.EMAIL_USER,
+        if (assignee) {
+          await sendMail({
             to: assignee.email,
             subject: '[Delore] New Task Assigned',
             html: `<p>Hello ${assignee.name || ''},</p>
@@ -306,15 +296,13 @@ router.put('/:id', auth, [
 
     await task.save();
 
-    // If newly assigned or reassigned, notify assignee
+    // If newly assigned or reassigned, notify assignee (Postmark)
     try {
       const newAssignedTo = task.assignedTo ? task.assignedTo.toString() : null;
       if (newAssignedTo && newAssignedTo !== prevAssignedTo) {
         const assignee = await User.findById(newAssignedTo);
-        const transporter = getTransporter();
-        if (assignee && transporter) {
-          await transporter.sendMail({
-            from: process.env.EMAIL_USER,
+        if (assignee) {
+          await sendMail({
             to: assignee.email,
             subject: '[Delore] Task Assigned to You',
             html: `<p>Hello ${assignee.name || ''},</p>

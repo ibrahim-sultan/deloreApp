@@ -6,6 +6,9 @@ const SchedulePage = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [busyTaskId, setBusyTaskId] = useState(null);
 
   useEffect(() => {
     fetchSchedule();
@@ -23,11 +26,41 @@ const SchedulePage = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${days[date.getDay()]} ${months[date.getMonth()]} ${date.getDate()} ${date.getFullYear()}`;
+  const handleClockIn = async (task) => {
+    setActionError('');
+    setActionSuccess('');
+    setBusyTaskId(task.id || task._id);
+
+    if (!navigator.geolocation) {
+      setActionError('Geolocation not supported by this browser');
+      setBusyTaskId(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const latitude = pos.coords.latitude;
+        const longitude = pos.coords.longitude;
+        const id = task.id || task._id;
+        const res = await axios.post(`/api/tasks/${id}/clock-in`, { latitude, longitude });
+        setActionSuccess(res.data?.message || 'Clock-in successful');
+        await fetchSchedule();
+      } catch (e) {
+        const msg = e.response?.data?.message || 'Clock-in failed';
+        setActionError(msg);
+      } finally {
+        setBusyTaskId(null);
+      }
+    }, (err) => {
+      setActionError(err.message || 'Failed to get current location');
+      setBusyTaskId(null);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   if (loading) {
@@ -45,7 +78,9 @@ const SchedulePage = () => {
       
       <h2 className="staff-section-title">Upcoming Schedule</h2>
       
-      {error && <div className="alert alert-error" style={{ marginBottom: '20px' }}>{error}</div>}
+      {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+      {actionError && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{actionError}</div>}
+      {actionSuccess && <div className="alert alert-success" style={{ marginBottom: '16px' }}>{actionSuccess}</div>}
       
       {tasks.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
@@ -55,26 +90,45 @@ const SchedulePage = () => {
         <div className="staff-schedules-list">
           {tasks.map((task) => (
             <div key={task._id || task.id} className="staff-schedule-card">
-              <div className="staff-schedule-client">{task.clientName || task.title}</div>
+              <div className="staff-schedule-client">{task.title}</div>
               <div className="staff-schedule-date">
-                {task.startDate ? formatDate(task.startDate) : 'Scheduled'}
+                Scheduled: {formatDateTime(task.scheduledStartTime)}
               </div>
               
               <div className="staff-schedule-details">
-                {task.startTime && task.endTime && (
-                  <div className="staff-schedule-item">
-                    <span className="staff-schedule-icon">🕐</span>
-                    <span>{task.startTime} - {task.endTime}</span>
-                  </div>
-                )}
-                
                 {task.location && (
                   <div className="staff-schedule-item">
                     <span className="staff-schedule-icon">📍</span>
                     <span>{task.location}</span>
                   </div>
                 )}
+                <div className="staff-schedule-item">
+                  <span className="staff-schedule-icon">🧭</span>
+                  <span>Geofence: 500m</span>
+                </div>
+                <div className="staff-schedule-item">
+                  <span className="staff-schedule-icon">⏱️</span>
+                  <span>Clock-in window: ±30 minutes</span>
+                </div>
               </div>
+
+              {!task.clockInTime && (
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    className="btn btn-primary"
+                    disabled={busyTaskId === (task.id || task._id)}
+                    onClick={() => handleClockIn(task)}
+                  >
+                    {busyTaskId === (task.id || task._id) ? 'Clocking in…' : 'Clock in (use current location)'}
+                  </button>
+                </div>
+              )}
+              {task.clockInTime && (
+                <div className="staff-schedule-item" style={{ marginTop: 8 }}>
+                  <span className="staff-schedule-icon">✅</span>
+                  <span>Clocked in at {formatDateTime(task.clockInTime)}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

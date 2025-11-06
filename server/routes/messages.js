@@ -3,15 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const { auth, adminAuth } = require('../middleware/auth');
-const nodemailer = require('nodemailer');
-
-function getTransporter() {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
-}
+const { sendMail } = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -44,17 +36,13 @@ router.post('/send', adminAuth, [
 
     await message.save();
 
-    // Email notification
+    // Email notification via Postmark
     try {
-      const transporter = getTransporter();
-      if (transporter) {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: recipient.email,
-          subject: `[Delore] ${subject}`,
-          html: `<p>You have a new message from Admin.</p><p><strong>Subject:</strong> ${subject}</p><p>${content}</p>`
-        });
-      }
+      await sendMail({
+        to: recipient.email,
+        subject: `[Delore] ${subject}`,
+        html: `<p>You have a new message from Admin.</p><p><strong>Subject:</strong> ${subject}</p><p>${content}</p>`
+      });
     } catch (mailErr) {
       console.warn('Email notification failed:', mailErr.message);
     }
@@ -198,18 +186,14 @@ router.post('/:id/reply', auth, [
 
     await message.save();
 
-    // Email notification to the other party
+    // Email notification to the other party (Postmark)
     try {
-      const transporter = getTransporter();
-      if (transporter) {
-        const otherEmail = (message.sender._id.toString() === req.user._id.toString()) ? message.recipient.email : message.sender.email;
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: otherEmail,
-          subject: `[Delore] Re: ${message.subject}`,
-          html: `<p>You have a new reply from ${req.user.email}.</p><p>${replyText}</p>`
-        });
-      }
+      const otherEmail = (message.sender._id.toString() === req.user._id.toString()) ? message.recipient.email : message.sender.email;
+      await sendMail({
+        to: otherEmail,
+        subject: `[Delore] Re: ${message.subject}`,
+        html: `<p>You have a new reply.</p><p>${replyText}</p>`
+      });
     } catch (mailErr) {
       console.warn('Email notification failed:', mailErr.message);
     }

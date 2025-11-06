@@ -166,6 +166,47 @@ const TaskManagement = () => {
                 <td>{task.hoursSpent ? `${task.hoursSpent.toFixed(2)}h` : '-'}</td>
                 <td><span className={`status-chip ${task.status || 'pending'}`}>{statusLabel(task.status)}</span></td>
                 <td>
+                  {/* Admin overrides for clock in/out */}
+                  {!task.clockInTime && (
+                    <button 
+                      className="icon-btn" 
+                      title="Clock-in for staff"
+                      onClick={async () => {
+                        const reason = window.prompt('Reason for admin clock-in override?');
+                        if (!reason) return;
+                        try {
+                          await axios.post(`/api/admin/override-clock-in/${task._id}`, { reason }, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          alert('Clock-in override successful');
+                          fetchData();
+                        } catch (e) {
+                          alert(e.response?.data?.message || 'Clock-in override failed');
+                        }
+                      }}
+                    >⏱️ In</button>
+                  )}
+                  {task.clockInTime && !task.clockOutTime && (
+                    <button 
+                      className="icon-btn" 
+                      title="Clock-out for staff"
+                      onClick={async () => {
+                        const workSummary = window.prompt('Enter work summary for clock-out');
+                        if (!workSummary) return;
+                        const reason = window.prompt('Reason for admin clock-out override?');
+                        if (!reason) return;
+                        try {
+                          await axios.post(`/api/admin/override-clock-out/${task._id}`, { reason, workSummary }, {
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          alert('Clock-out override successful');
+                          fetchData();
+                        } catch (e) {
+                          alert(e.response?.data?.message || 'Clock-out override failed');
+                        }
+                      }}
+                    >🏁 Out</button>
+                  )}
                   <button className="icon-btn" title="Edit" onClick={() => handleEdit(task)}>✏️</button>
                   <button className="icon-btn danger" title="Delete" onClick={() => handleDelete(task._id)}>🗑️</button>
                 </td>

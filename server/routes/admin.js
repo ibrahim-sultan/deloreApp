@@ -12,7 +12,7 @@ const { adminAuth } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
+const { sendMail } = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -360,21 +360,9 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
 
     await task.save();
 
-    // Send email notification to staff
+    // Send email notification to staff (Postmark)
     try {
-      // Create a transporter
-      const transporter = nodemailer.createTransport({
-        // Use environment variables in production
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER || 'your-email@gmail.com',
-          pass: process.env.EMAIL_PASS || 'your-password'
-        }
-      });
-
-      // Email content
-      const mailOptions = {
-        from: process.env.EMAIL_USER || 'your-email@gmail.com',
+      await sendMail({
         to: staff.email,
         subject: `New Task Assignment: ${title}`,
         html: `
@@ -388,16 +376,12 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
           <p><strong>End Time:</strong> ${new Date(scheduledEndTime).toLocaleString()}</p>
           <p>Please log in to your portal to view more details and clock in when you arrive at the location.</p>
         `
-      };
-
-      // Send email
-      await transporter.sendMail(mailOptions);
-      
+      });
       // Update notification status
       task.notificationSent = true;
       await task.save();
     } catch (emailError) {
-      console.error('Email notification failed:', emailError);
+      console.error('Email notification failed:', emailError.message);
       // Continue even if email fails
     }
 

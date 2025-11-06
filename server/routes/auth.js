@@ -164,54 +164,11 @@ router.post('/change-password', [
   }
 });
 
-// Forgot password - request reset link
-router.post('/forgot-password', [
-  body('email').isEmail().withMessage('Valid email is required')
-], async (req, res) => {
+// Forgot password - disabled for staff; instruct to contact admin instead
+router.post('/forgot-password', async (_req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-
-    // Always respond success to prevent email enumeration
-    if (!user) {
-      return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
-    }
-
-    // Generate reset token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    user.resetPasswordToken = tokenHash;
-    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    await user.save();
-
-    const baseUrl = process.env.CLIENT_BASE_URL || process.env.APP_BASE_URL || '';
-    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
-
-    // Send email
-    try {
-      const transporter = getTransporter();
-      if (transporter) {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: user.email,
-          subject: '[Delore] Password Reset Request',
-          html: `<p>Hello ${user.name || ''},</p>
-                 <p>You requested a password reset. Click the link below to set a new password. This link expires in 1 hour.</p>
-                 <p><a href="${resetUrl}">Reset your password</a></p>
-                 <p>If you did not request this, please ignore this email.</p>`
-        });
-      }
-    } catch (mailErr) {
-      console.warn('Password reset email failed:', mailErr.message);
-    }
-
-    res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+    // Intentionally do not process email to avoid self-service resets
+    return res.json({ message: 'Password resets are managed by your administrator. Please contact your admin.' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ message: 'Server error while requesting password reset' });
