@@ -77,12 +77,22 @@ npm install
 ```
 
 ### 3. Environment Configuration
-Create a `.env` file in the server directory with:
+Create a `.env` file in the `server` directory (never commit this file):
 ```env
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/delore
 JWT_SECRET=your_jwt_secret_key_here_change_in_production
 NODE_ENV=development
+# Optional email settings
+EMAIL_USER=
+EMAIL_PASS=
+# Client base URL for password reset links
+CLIENT_BASE_URL=http://localhost:3000
+```
+Also (optional) create `client/.env` with any client-side keys you need:
+```env
+# Example: used by MapPreview
+REACT_APP_GOOGLE_MAPS_API_KEY=your_key_here
 ```
 
 ### 4. Frontend Setup
@@ -94,22 +104,12 @@ npm install
 ### 5. Database Setup
 Make sure MongoDB is running on your system. The application will automatically create the database and collections.
 
-### 6. Create Admin User
-Since only staff can register through the UI, you'll need to create an admin user manually in MongoDB:
+### 6. Admin Account Setup
+For first-time setup, you can create an initial admin user via the server endpoint (only works when no admin exists):
 
-```javascript
-// Connect to MongoDB and run this in MongoDB shell or MongoDB Compass
-use delore
-db.users.insertOne({
-  name: "Admin User",
-  email: "admin@delore.com",
-  password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password: "password"
-  role: "admin",
-  isActive: true,
-  createdAt: new Date(),
-  updatedAt: new Date()
-})
-```
+- POST /api/auth/create-admin
+
+Alternatively, create an admin directly in your database with a strong, unique password. Do not commit any credentials to the repository.
 
 ## Running the Application
 
@@ -143,14 +143,10 @@ cd server
 npm start
 ```
 
-## Default Login Credentials
+## Accounts
 
-### Admin Login
-- **Email**: admin@delore.com
-- **Password**: password
-
-### Staff Registration
-Staff members can register through the registration page at `/register`
+- Admin accounts are not publicly exposed. For initial setup, use the endpoint noted above or create an admin in the database with a secure password.
+- Staff members can register through the registration page at `/register` (if enabled by your deployment policies).
 
 ## API Endpoints
 
@@ -188,13 +184,13 @@ Staff members can register through the registration page at `/register`
 - **Documents**: 10MB max, supports PDF, DOC, DOCX, TXT, images
 - **Payment Receipts**: 5MB max, supports PDF and images
 
-## Security Features
+## Security Notes
 
-- JWT-based authentication
-- Password hashing with bcrypt
-- Role-based access control
-- File type validation
-- Input validation and sanitization
+- Environment files are ignored by Git (see .gitignore). Do not commit secrets.
+- Rotate any secrets that were previously committed (e.g., database passwords, JWT secrets).
+- JWT-based authentication; passwords hashed with bcrypt; role-based access control.
+- Avoid logging credentials or full connection strings in production logs.
+- Validate and sanitize all inputs; validate file types and sizes for uploads.
 
 ## Browser Support
 

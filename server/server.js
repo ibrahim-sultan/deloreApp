@@ -43,8 +43,12 @@ const connectDB = async () => {
   } catch (err) {
     console.error('MongoDB connection error:', err);
     console.error('Please ensure MongoDB is running and the MONGODB_URI in .env is correct');
-    console.error('MONGODB_URI:', process.env.MONGODB_URI);
-    
+    // Do not log the full connection string to avoid leaking credentials
+    if (process.env.MONGODB_URI) {
+      const uriPreview = process.env.MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@');
+      console.error('MONGODB_URI (redacted):', uriPreview);
+    }
+
     // Retry connection after 5 seconds
     setTimeout(connectDB, 5000);
   }

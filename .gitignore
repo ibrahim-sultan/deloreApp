@@ -46,11 +46,20 @@ list-*.js
 test-*.js
 
 # Environment files
+# Root-level
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+
+# Any nested directories
+**/.env
+**/.env.*
+!**/.env.example
+
+# Server-specific (explicit)
+server/.env
+server/.env.*
+!server/.env.example
 
 # Server node_modules
 server/node_modules/
