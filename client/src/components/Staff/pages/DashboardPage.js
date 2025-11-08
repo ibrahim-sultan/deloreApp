@@ -21,8 +21,9 @@ const DashboardPage = () => {
       const allTasks = response.data.tasks || [];
 
       // Only show pending/assigned/in-progress tasks
-      const upcomingTasks = allTasks.filter((task) =>
-        ['pending', 'assigned', 'in-progress'].includes(task.status)
+      const upcomingTasks = allTasks.filter(
+        (task) =>
+          ['pending', 'assigned', 'in-progress'].includes(task.status)
       );
 
       setTasks(upcomingTasks.slice(0, 3)); // show first 3
