@@ -6,6 +6,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import ForgotPassword from './components/Auth/ForgotPassword';
 import ResetPassword from './components/Auth/ResetPassword';
+import PrivacyPolicy from './components/PrivacyPolicy/PrivacyPolicy';
 import StaffDashboard from './components/Staff/StaffDashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import TokenTest from './components/Admin/TokenTest';
@@ -101,6 +102,8 @@ function AppContent() {
                 <ResetPassword />
               </PublicRoute>
             } />
+
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             
             {/* Public registration removed - only admins can create staff accounts */}
             

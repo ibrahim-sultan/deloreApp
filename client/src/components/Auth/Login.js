@@ -117,6 +117,11 @@ const Login = () => {
               Forgot your password?
             </Link>
           </div>
+          <div style={{ marginTop: '12px' }}>
+            <Link to="/privacy-policy" className="link">
+              Privacy Policy
+            </Link>
+          </div>
           <p className="auth-note">
             Staff accounts are created by administrators only.
           </p>
