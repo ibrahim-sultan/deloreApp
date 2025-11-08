@@ -17,8 +17,11 @@ const ClientManagement = () => {
         contactNumber: '',
         contactPerson: '',
         businessType: '',
-        notes: ''
+        notes: '',
+        latitude: '',
+        longitude: ''
     });
+    const [geocoding, setGeocoding] = useState(false);
 
     useEffect(() => {
         fetchClients();
@@ -49,7 +52,9 @@ const ClientManagement = () => {
             contactNumber: '',
             contactPerson: '',
             businessType: '',
-            notes: ''
+            notes: '',
+            latitude: '',
+            longitude: ''
         });
         setShowAddModal(true);
     };
@@ -63,7 +68,9 @@ const ClientManagement = () => {
             contactNumber: client.contactNumber || '',
             contactPerson: client.contactPerson || '',
             businessType: client.businessType || '',
-            notes: client.notes || ''
+            notes: client.notes || '',
+            latitude: client.coordinates?.latitude || '',
+            longitude: client.coordinates?.longitude || ''
         });
         setShowAddModal(true);
     };
@@ -78,9 +85,45 @@ const ClientManagement = () => {
             contactNumber: '',
             contactPerson: '',
             businessType: '',
-            notes: ''
+            notes: '',
+            latitude: '',
+            longitude: ''
         });
         setError('');
+    };
+
+    const getCoordinatesFromAddress = async () => {
+        if (!formData.address) {
+            setError('Please enter an address first');
+            return;
+        }
+        
+        setGeocoding(true);
+        setError('');
+        
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&limit=1`
+            );
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                setFormData({
+                    ...formData,
+                    latitude: data[0].lat,
+                    longitude: data[0].lon
+                });
+                setSuccess('Coordinates found successfully!');
+                setTimeout(() => setSuccess(''), 3000);
+            } else {
+                setError('Could not find coordinates for this address. Please enter them manually.');
+            }
+        } catch (err) {
+            console.error('Geocoding error:', err);
+            setError('Failed to get coordinates. Please enter them manually.');
+        } finally {
+            setGeocoding(false);
+        }
     };
 
     const handleSubmitClient = async (e) => {
@@ -89,13 +132,24 @@ const ClientManagement = () => {
         setSuccess('');
 
         try {
+            const dataToSend = {
+                ...formData,
+                coordinates: formData.latitude && formData.longitude ? {
+                    latitude: parseFloat(formData.latitude),
+                    longitude: parseFloat(formData.longitude)
+                } : undefined
+            };
+            
+            delete dataToSend.latitude;
+            delete dataToSend.longitude;
+            
             if (editingClient) {
-                await axios.put(`/api/clients/${editingClient._id}`, formData, {
+                await axios.put(`/api/clients/${editingClient._id}`, dataToSend, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
                 setSuccess('Client updated successfully!');
             } else {
-                await axios.post('/api/clients', formData, {
+                await axios.post('/api/clients', dataToSend, {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
                 setSuccess('Client added successfully!');
@@ -290,6 +344,58 @@ const ClientManagement = () => {
                                     placeholder="Start typing for suggestions..."
                                     required
                                 />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="latitude">Latitude</label>
+                                <input
+                                    type="number"
+                                    id="latitude"
+                                    name="latitude"
+                                    value={formData.latitude}
+                                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                                    placeholder="e.g., 6.5244"
+                                    step="any"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="longitude">Longitude</label>
+                                <input
+                                    type="number"
+                                    id="longitude"
+                                    name="longitude"
+                                    value={formData.longitude}
+                                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                                    placeholder="e.g., 3.3792"
+                                    step="any"
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <button 
+                                    type="button" 
+                                    className="btn-geocode"
+                                    onClick={getCoordinatesFromAddress}
+                                    disabled={geocoding || !formData.address}
+                                    style={{ 
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: geocoding ? '#6c757d' : '#28a745',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        cursor: geocoding || !formData.address ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                >
+                                    {geocoding ? '🔄 Getting Coordinates...' : '🗺️ Get Coordinates from Address'}
+                                </button>
+                                <small style={{ display: 'block', marginTop: '8px', color: '#6c757d', fontSize: '12px' }}>
+                                    💡 Click this button to automatically find coordinates, or enter them manually
+                                </small>
                             </div>
 
                             <div className="form-group">

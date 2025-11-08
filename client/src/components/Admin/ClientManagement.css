@@ -287,6 +287,8 @@
 
 .client-form {
   padding: 24px;
+  /* Ensure content doesn't get hidden behind the bottom edge on some browsers */
+  padding-bottom: 96px;
 }
 
 .form-group {
@@ -331,6 +333,12 @@
   margin-top: 32px;
   padding-top: 20px;
   border-top: 1px solid #e1e5e9;
+  /* Keep actions visible when scrolling inside the modal */
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-bottom: 12px;
+  z-index: 1;
 }
 
 .btn-cancel {
@@ -411,5 +419,6 @@
 
   .client-form {
     padding: 20px;
+    padding-bottom: 88px; /* keep extra space for sticky actions on small screens */
   }
 }
