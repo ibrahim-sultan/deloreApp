@@ -9,114 +9,84 @@ const DashboardPage = () => {
   const [checkoutTask, setCheckoutTask] = useState(null);
   const [workSummary, setWorkSummary] = useState('');
 
-  // ✅ Fetch tasks on load
   useEffect(() => {
     fetchTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch tasks assigned to staff
   const fetchTasks = async () => {
     try {
       const response = await axios.get('/api/tasks/my-tasks');
       const allTasks = response.data.tasks || [];
-
-      // Only show pending/assigned/in-progress tasks
-      const upcomingTasks = allTasks.filter((task) =>
+      const upcomingTasks = allTasks.filter(task =>
         ['pending', 'assigned', 'in-progress'].includes(task.status)
       );
-
-      setTasks(upcomingTasks.slice(0, 3)); // show first 3
+      setTasks(upcomingTasks.slice(0, 3));
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      alert('Failed to load tasks. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Haversine formula for distance
+  // Haversine formula for distance in meters
   const haversine = (lat1, lon1, lat2, lon2) => {
     const toRad = (x) => (x * Math.PI) / 180;
     const R = 6371000; // meters
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // ✅ Get coordinates
+  // Get current coordinates from device
   const getCurrentCoords = () =>
     new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        alert('Geolocation is not supported on this device.');
-        return reject(new Error('Geolocation not supported'));
-      }
+      if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
       navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          resolve({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          }),
-        (err) => {
-          alert(
-            'Unable to get your location. Please enable GPS or grant location permission.'
-          );
-          reject(new Error(err.message || 'Geolocation failed'));
-        },
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        (err) => reject(new Error(err.message || 'Geolocation failed')),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     });
 
-  // ✅ Clock in
+  // Clock in with geofence check
   const handleClockIn = async (task) => {
     const taskId = task.id || task._id;
     try {
       setProcessing(taskId);
 
-      // Optional time window validation
+      // Optional: time window check
       if (task.scheduledStartTime) {
         const start = new Date(task.scheduledStartTime).getTime();
         const now = Date.now();
-        const windowMs = 30 * 60 * 1000; // 30 mins
+        const windowMs = 30 * 60 * 1000;
         if (now < start - windowMs || now > start + windowMs) {
-          alert(
-            'You can only check in within 30 minutes before or after the scheduled start time.'
-          );
+          alert('You can only check in within 30 minutes before or after the scheduled start time.');
           setProcessing(null);
           return;
         }
       }
 
       const coords = await getCurrentCoords();
+      const lat = parseFloat(coords.latitude);
+      const lng = parseFloat(coords.longitude);
+      const taskLat = parseFloat(task.coordinates?.latitude);
+      const taskLng = parseFloat(task.coordinates?.longitude);
 
-      // Validate proximity
-      if (
-        task.coordinates?.latitude != null &&
-        task.coordinates?.longitude != null
-      ) {
-        const dist = haversine(
-          coords.latitude,
-          coords.longitude,
-          task.coordinates.latitude,
-          task.coordinates.longitude
-        );
+      if (!isNaN(taskLat) && !isNaN(taskLng)) {
+        const dist = haversine(lat, lng, taskLat, taskLng);
+        console.log(`Distance to task: ${dist} meters`);
         if (dist > 500) {
-          alert(
-            `You are too far from the assigned location (${Math.round(
-              dist
-            )}m). Move within 500m to check in.`
-          );
+          alert(`You are too far from the assigned location (${Math.round(dist)}m). Move within 500m to check in.`);
           setProcessing(null);
           return;
         }
       }
 
-      await axios.post(`/api/tasks/${taskId}/clock-in`, coords);
+      await axios.post(`/api/tasks/${taskId}/clock-in`, { latitude: lat, longitude: lng });
       alert('Clocked in successfully!');
       fetchTasks();
     } catch (error) {
@@ -127,22 +97,27 @@ const DashboardPage = () => {
     }
   };
 
-  // ✅ Clock out (open modal)
+  // Open clock-out modal
   const handleClockOut = (taskId) => {
     setCheckoutTask(taskId);
     setWorkSummary('');
   };
 
-  // ✅ Submit clock out report
+  // Submit clock-out report
   const submitClockOut = async () => {
     if (!checkoutTask) return;
     try {
       setProcessing(checkoutTask);
       const coords = await getCurrentCoords();
+      const lat = parseFloat(coords.latitude);
+      const lng = parseFloat(coords.longitude);
+
       await axios.post(`/api/tasks/${checkoutTask}/clock-out`, {
-        ...coords,
-        workSummary,
+        latitude: lat,
+        longitude: lng,
+        workSummary
       });
+
       alert('Clocked out successfully!');
       setCheckoutTask(null);
       setWorkSummary('');
@@ -170,57 +145,33 @@ const DashboardPage = () => {
 
       <div className="staff-welcome-banner">
         <h2 className="staff-welcome-title">Hello, Staff Member!</h2>
-        <p className="staff-welcome-subtitle">
-          Here's what's on your plate for today.
-        </p>
+        <p className="staff-welcome-subtitle">Here's what's on your plate for today.</p>
       </div>
 
       <div className="staff-content-card">
         <h3 className="staff-card-title">Today's Assignment</h3>
-
         {tasks.length === 0 ? (
-          <div
-            style={{ textAlign: 'center', padding: '40px', color: '#666' }}
-          >
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
             <p>No assignments for today.</p>
           </div>
         ) : (
           tasks.map((task, index) => (
-            <div
-              key={task._id || task.id || index}
-              className="staff-assignment"
-            >
+            <div key={task._id || task.id || index} className="staff-assignment">
               <div className="staff-assignment-header">
-                <span className="staff-client-name">
-                  {task.client?.name || task.title}
-                </span>
-                <span className="staff-status-badge upcoming">
-                  {task.status || 'Pending'}
-                </span>
+                <span className="staff-client-name">{task.client?.name || task.title}</span>
+                <span className="staff-status-badge upcoming">{task.status || 'Pending'}</span>
               </div>
 
               <div className="staff-assignment-details">
-                {(task.scheduledStartTime || task.startTime) &&
-                  (task.scheduledEndTime || task.endTime) && (
-                    <div className="staff-detail-item">
-                      <span className="staff-detail-icon">🕐</span>
-                      <span>
-                        {new Date(
-                          task.scheduledStartTime || task.startTime
-                        ).toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}{' '}
-                        -{' '}
-                        {new Date(
-                          task.scheduledEndTime || task.endTime
-                        ).toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                  )}
+                {(task.scheduledStartTime || task.startTime) && (task.scheduledEndTime || task.endTime) && (
+                  <div className="staff-detail-item">
+                    <span className="staff-detail-icon">🕐</span>
+                    <span>
+                      {new Date(task.scheduledStartTime || task.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
+                      {new Date(task.scheduledEndTime || task.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
 
                 {task.location && (
                   <div className="staff-detail-item location-item">
@@ -251,15 +202,12 @@ const DashboardPage = () => {
 
               <div className="staff-action-buttons">
                 {!task.clockInTime ? (
-                  <button
+                  <button 
                     className="staff-action-btn primary green"
                     onClick={() => handleClockIn(task)}
                     disabled={processing === (task.id || task._id)}
                   >
-                    <span>✓</span>{' '}
-                    {processing === (task.id || task._id)
-                      ? 'Checking in...'
-                      : 'Check In'}
+                    <span>✓</span> {processing === (task.id || task._id) ? 'Checking in...' : 'Check In'}
                   </button>
                 ) : task.clockInTime && !task.clockOutTime ? (
                   <button
@@ -267,10 +215,7 @@ const DashboardPage = () => {
                     onClick={() => handleClockOut(task.id || task._id)}
                     disabled={processing === (task.id || task._id)}
                   >
-                    <span>📄</span>{' '}
-                    {processing === (task.id || task._id)
-                      ? 'Checking out...'
-                      : 'Report & Check Out'}
+                    <span>📄</span> {processing === (task.id || task._id) ? 'Checking out...' : 'Report & Check Out'}
                   </button>
                 ) : (
                   <div className="staff-completed-badge">✓ Completed</div>
@@ -282,22 +227,11 @@ const DashboardPage = () => {
       </div>
 
       {checkoutTask && (
-        <div
-          className="modal-overlay"
-          onClick={() => setCheckoutTask(null)}
-        >
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="modal-overlay" onClick={() => setCheckoutTask(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Report & Check Out</h3>
-              <button
-                className="close-button"
-                onClick={() => setCheckoutTask(null)}
-              >
-                ×
-              </button>
+              <button className="close-button" onClick={() => setCheckoutTask(null)}>×</button>
             </div>
             <div className="modal-body">
               <label className="form-label">Work Summary</label>
@@ -311,20 +245,9 @@ const DashboardPage = () => {
               />
             </div>
             <div className="form-actions">
-              <button
-                className="btn btn-secondary"
-                onClick={() => setCheckoutTask(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={submitClockOut}
-                disabled={processing === checkoutTask}
-              >
-                {processing === checkoutTask
-                  ? 'Checking out...'
-                  : 'Submit & Check Out'}
+              <button className="btn btn-secondary" onClick={() => setCheckoutTask(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={submitClockOut} disabled={processing === checkoutTask}>
+                {processing === checkoutTask ? 'Checking out...' : 'Submit & Check Out'}
               </button>
             </div>
           </div>
