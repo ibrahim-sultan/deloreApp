@@ -10,6 +10,7 @@ import StaffDashboard from './components/Staff/StaffDashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import TokenTest from './components/Admin/TokenTest';
 import LoadingSpinner from './components/Common/LoadingSpinner';
+import PrivacyPolicy from './components/Public/PrivacyPolicy';
 import './App.css';
 
 const NavbarWrapper = () => {
@@ -101,6 +102,9 @@ function AppContent() {
                 <ResetPassword />
               </PublicRoute>
             } />
+
+            {/* Public pages */}
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             
             {/* Public registration removed - only admins can create staff accounts */}
             
