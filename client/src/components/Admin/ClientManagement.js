@@ -56,6 +56,8 @@ const ClientManagement = () => {
             latitude: '',
             longitude: ''
         });
+        setError('');
+        setSuccess('');
         setShowAddModal(true);
     };
 
@@ -72,6 +74,8 @@ const ClientManagement = () => {
             latitude: client.coordinates?.latitude || '',
             longitude: client.coordinates?.longitude || ''
         });
+        setError('');
+        setSuccess('');
         setShowAddModal(true);
     };
 
@@ -95,32 +99,75 @@ const ClientManagement = () => {
     const getCoordinatesFromAddress = async () => {
         if (!formData.address) {
             setError('Please enter an address first');
+            setSuccess('');
             return;
         }
         
         setGeocoding(true);
         setError('');
+        setSuccess('');
         
+        const fetchWithTimeout = async (url, opts = {}, timeoutMs = 10000) => {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            try {
+                return await fetch(url, { ...opts, signal: ctrl.signal });
+            } finally {
+                clearTimeout(timer);
+            }
+        };
+
+        const geocodeOnce = async () => {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&limit=1`;
+            const res = await fetchWithTimeout(url, {}, 10000);
+            if (!res.ok) {
+                const err = new Error(`Geocoding failed with status ${res.status}`);
+                err.status = res.status;
+                throw err;
+            }
+            return res.json();
+        };
+
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
         try {
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&limit=1`
-            );
-            const data = await response.json();
+            let data;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    data = await geocodeOnce();
+                    break;
+                } catch (e) {
+                    const status = e?.status;
+                    const isRetryable = status === 429 || status === 503 || e.name === 'AbortError' || e.message?.includes('NetworkError');
+                    if (attempt === 0 && isRetryable) {
+                        await sleep(1200);
+                        continue;
+                    }
+                    throw e;
+                }
+            }
             
-            if (data && data.length > 0) {
+            if (Array.isArray(data) && data.length > 0) {
                 setFormData({
                     ...formData,
                     latitude: data[0].lat,
                     longitude: data[0].lon
                 });
+                setError('');
                 setSuccess('Coordinates found successfully!');
                 setTimeout(() => setSuccess(''), 3000);
             } else {
+                setSuccess('');
                 setError('Could not find coordinates for this address. Please enter them manually.');
             }
         } catch (err) {
             console.error('Geocoding error:', err);
-            setError('Failed to get coordinates. Please enter them manually.');
+            let msg = 'Failed to get coordinates. Please enter them manually.';
+            if (err?.status === 429) msg = 'Too many requests to geocoding service. Please wait a minute and try again.';
+            else if (err?.status === 503) msg = 'Geocoding service is temporarily unavailable. Try again shortly.';
+            else if (err?.name === 'AbortError') msg = 'Request timed out. Check your internet connection and try again.';
+            setSuccess('');
+            setError(msg);
         } finally {
             setGeocoding(false);
         }
@@ -212,13 +259,13 @@ const ClientManagement = () => {
                 </div>
             </div>
 
-            {error && (
+            {!showAddModal && error && (
                 <div className="alert alert-error">
                     <span>⚠️</span> {error}
                     <button onClick={() => setError('')} className="alert-close">×</button>
                 </div>
             )}
-            {success && (
+            {!showAddModal && success && (
                 <div className="alert alert-success">
                     <span>✅</span> {success}
                     <button onClick={() => setSuccess('')} className="alert-close">×</button>
