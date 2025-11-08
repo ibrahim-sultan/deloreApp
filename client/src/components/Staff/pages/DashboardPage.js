@@ -21,9 +21,8 @@ const DashboardPage = () => {
       const allTasks = response.data.tasks || [];
 
       // Only show pending/assigned/in-progress tasks
-      const upcomingTasks = allTasks.filter(
-        (task) =>
-          ['pending', 'assigned', 'in-progress'].includes(task.status)
+      const upcomingTasks = allTasks.filter((task) =>
+        ['pending', 'assigned', 'in-progress'].includes(task.status)
       );
 
       setTasks(upcomingTasks.slice(0, 3)); // show first 3
@@ -117,7 +116,7 @@ const DashboardPage = () => {
         }
       }
 
-      await axios.post(/api/tasks/${taskId}/clock-in, coords);
+      await axios.post(`/api/tasks/${taskId}/clock-in`, coords);
       alert('Clocked in successfully!');
       fetchTasks();
     } catch (error) {
@@ -140,7 +139,7 @@ const DashboardPage = () => {
     try {
       setProcessing(checkoutTask);
       const coords = await getCurrentCoords();
-      await axios.post(/api/tasks/${checkoutTask}/clock-out, {
+      await axios.post(`/api/tasks/${checkoutTask}/clock-out`, {
         ...coords,
         workSummary,
       });
@@ -230,14 +229,14 @@ const DashboardPage = () => {
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${
                         task.coordinates?.latitude && task.coordinates?.longitude
-                          ? ${task.coordinates.latitude},${task.coordinates.longitude}
+                          ? `${task.coordinates.latitude},${task.coordinates.longitude}`
                           : encodeURIComponent(task.location || '')
                       }`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="staff-directions-btn"
                     >
-                      <span>✈</span> Directions
+                      <span>✈️</span> Directions
                     </a>
                   </div>
                 )}
