@@ -67,6 +67,12 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
       form.append('totalHours', totalHours);
       form.append('staffId', staffId);
       form.append('clientId', clientId);
+      
+      // Include client coordinates if available
+      if (selectedClient?.coordinates?.latitude && selectedClient?.coordinates?.longitude) {
+        form.append('latitude', selectedClient.coordinates.latitude);
+        form.append('longitude', selectedClient.coordinates.longitude);
+      }
 
       await axios.post('/api/admin/assign-task', form, {
         headers: {

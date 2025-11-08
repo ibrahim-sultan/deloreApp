@@ -17,6 +17,16 @@ const clientSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    coordinates: {
+        latitude: {
+            type: Number,
+            required: false
+        },
+        longitude: {
+            type: Number,
+            required: false
+        }
+    },
     addedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
