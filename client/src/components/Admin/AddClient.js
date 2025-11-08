@@ -14,6 +14,7 @@ const AddClient = () => {
   const [formData, setFormData] = useState({
     name: editingClient?.name || '',
     address: editingClient?.address || '',
+    streetType: '',
     contactNumber: editingClient?.contactNumber || '',
     email: editingClient?.email || '',
     contactPerson: editingClient?.contactPerson || '',
@@ -52,6 +53,14 @@ const AddClient = () => {
         clearTimeout(timer);
       }
     };
+
+    // Apply optional street type if address lacks a street-type word
+    const selectedType = String(formData.streetType || '').trim();
+    const knownType = /\b(street|st|road|rd|avenue|ave|close|crescent|drive|dr|lane|ln|court|ct|boulevard|blvd|way|place|pl|terrace|ter|parkway|pkwy)\b/i;
+    let addressForGeocode = String(formData.address || '').trim();
+    if (selectedType && !knownType.test(addressForGeocode)) {
+      addressForGeocode = `${addressForGeocode} ${selectedType}`;
+    }
 
     const buildUrls = (rawAddress) => {
       const addr = String(rawAddress || '').trim();
@@ -116,7 +125,7 @@ const AddClient = () => {
 
     try {
       let data = [];
-      const urls = buildUrls(formData.address);
+      const urls = buildUrls(addressForGeocode);
 
       for (const url of urls) {
         let attemptResult = null;
@@ -187,6 +196,7 @@ const AddClient = () => {
       // Remove individual lat/lng fields from top level
       delete dataToSend.latitude;
       delete dataToSend.longitude;
+      delete dataToSend.streetType;
       
       if (isEditing) {
         await axios.put(`/api/clients/${editingClient._id}`, dataToSend, {
@@ -388,6 +398,33 @@ const AddClient = () => {
                   <div className="form-help">
                     <span className="help-icon">🗺️</span>
                     Please provide complete address for accurate location mapping
+                  </div>
+
+                  <div className="inline-fields" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginTop: '10px' }}>
+                    <div className="form-group">
+                      <label className="form-label">Street Type (optional)</label>
+                      <select
+                        className="form-select"
+                        name="streetType"
+                        value={formData.streetType}
+                        onChange={onChange}
+                      >
+                        <option value="">-- Select --</option>
+                        <option>Street</option>
+                        <option>Road</option>
+                        <option>Avenue</option>
+                        <option>Close</option>
+                        <option>Crescent</option>
+                        <option>Drive</option>
+                        <option>Lane</option>
+                        <option>Court</option>
+                        <option>Boulevard</option>
+                        <option>Way</option>
+                        <option>Place</option>
+                        <option>Terrace</option>
+                        <option>Parkway</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 

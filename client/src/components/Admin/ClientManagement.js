@@ -14,6 +14,7 @@ const ClientManagement = () => {
         name: '',
         email: '',
         address: '',
+        streetType: '',
         contactNumber: '',
         contactPerson: '',
         businessType: '',
@@ -49,6 +50,7 @@ const ClientManagement = () => {
             name: '',
             email: '',
             address: '',
+            streetType: '',
             contactNumber: '',
             contactPerson: '',
             businessType: '',
@@ -67,6 +69,7 @@ const ClientManagement = () => {
             name: client.name || '',
             email: client.email || '',
             address: client.address || '',
+            streetType: '',
             contactNumber: client.contactNumber || '',
             contactPerson: client.contactPerson || '',
             businessType: client.businessType || '',
@@ -86,6 +89,7 @@ const ClientManagement = () => {
             name: '',
             email: '',
             address: '',
+            streetType: '',
             contactNumber: '',
             contactPerson: '',
             businessType: '',
@@ -116,6 +120,14 @@ const ClientManagement = () => {
                 clearTimeout(timer);
             }
         };
+
+        // Apply optional street type if address lacks a street-type word
+        const selectedType = String(formData.streetType || '').trim();
+        const knownType = /\b(street|st|road|rd|avenue|ave|close|crescent|drive|dr|lane|ln|court|ct|boulevard|blvd|way|place|pl|terrace|ter|parkway|pkwy)\b/i;
+        let addressForGeocode = String(formData.address || '').trim();
+        if (selectedType && !knownType.test(addressForGeocode)) {
+            addressForGeocode = `${addressForGeocode} ${selectedType}`;
+        }
 
         const buildUrls = (rawAddress) => {
             const addr = String(rawAddress || '').trim();
@@ -171,7 +183,7 @@ const ClientManagement = () => {
 
         try {
             let data = [];
-            const urls = buildUrls(formData.address);
+            const urls = buildUrls(addressForGeocode);
             for (const url of urls) {
                 let attemptResult = null;
                 for (let attempt = 0; attempt < 2; attempt++) {
@@ -236,6 +248,7 @@ const ClientManagement = () => {
             
             delete dataToSend.latitude;
             delete dataToSend.longitude;
+            delete dataToSend.streetType;
             
             if (editingClient) {
                 await axios.put(`/api/clients/${editingClient._id}`, dataToSend, {
@@ -438,6 +451,33 @@ const ClientManagement = () => {
                                     placeholder="Start typing for suggestions..."
                                     required
                                 />
+                                <div className="form-help" style={{ marginTop: '6px', color: '#6c757d' }}>
+                                    Optional: pick a street type to help geocoding if the address lacks it
+                                </div>
+                                <div className="form-group" style={{ marginTop: '8px' }}>
+                                    <label htmlFor="streetType">Street Type (optional)</label>
+                                    <select
+                                        id="streetType"
+                                        name="streetType"
+                                        value={formData.streetType || ''}
+                                        onChange={(e) => setFormData({ ...formData, streetType: e.target.value })}
+                                    >
+                                        <option value="">-- Select --</option>
+                                        <option>Street</option>
+                                        <option>Road</option>
+                                        <option>Avenue</option>
+                                        <option>Close</option>
+                                        <option>Crescent</option>
+                                        <option>Drive</option>
+                                        <option>Lane</option>
+                                        <option>Court</option>
+                                        <option>Boulevard</option>
+                                        <option>Way</option>
+                                        <option>Place</option>
+                                        <option>Terrace</option>
+                                        <option>Parkway</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="form-group">
