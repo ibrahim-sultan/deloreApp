@@ -53,35 +53,57 @@ const AddClient = () => {
       }
     };
 
-    const geocodeOnce = async () => {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&limit=1`;
+    const buildUrls = (rawAddress) => {
+      const addr = String(rawAddress || '').trim();
+      const base = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&q=${encodeURIComponent(addr)}`;
+      const countries = [
+        { code: 'ng', name: 'Nigeria' },
+        { code: 'ca', name: 'Canada' },
+      ];
+      const urls = [base];
+      for (const { code, name } of countries) {
+        const hasName = new RegExp(`\\b${name}\\b`, 'i').test(addr);
+        const biasedAddr = hasName ? addr : `${addr}, ${name}`;
+        urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&countrycodes=${code}&q=${encodeURIComponent(biasedAddr)}`);
+      }
+      return urls;
+    };
+
+    const geocodeUrl = async (url) => {
       const res = await fetchWithTimeout(url, {}, 10000);
       if (!res.ok) {
         const err = new Error(`Geocoding failed with status ${res.status}`);
         err.status = res.status;
         throw err;
       }
-      // Nominatim always returns JSON array for this endpoint
       return res.json();
     };
 
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
     try {
-      let data;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          data = await geocodeOnce();
-          break; // success
-        } catch (e) {
-          // Retry once on rate limit or service unavailable or network/timeout
-          const status = e?.status;
-          const isRetryable = status === 429 || status === 503 || e.name === 'AbortError' || e.message?.includes('NetworkError');
-          if (attempt === 0 && isRetryable) {
-            await sleep(1200);
-            continue;
+      let data = [];
+      const urls = buildUrls(formData.address);
+
+      for (const url of urls) {
+        let attemptResult = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            attemptResult = await geocodeUrl(url);
+            break; // success for this URL
+          } catch (e) {
+            const status = e?.status;
+            const isRetryable = status === 429 || status === 503 || e.name === 'AbortError' || e.message?.includes('NetworkError');
+            if (attempt === 0 && isRetryable) {
+              await sleep(1200);
+              continue;
+            }
+            throw e;
           }
-          throw e;
+        }
+        if (Array.isArray(attemptResult) && attemptResult.length > 0) {
+          data = attemptResult;
+          break; // we have a result; stop trying further URLs
         }
       }
 
