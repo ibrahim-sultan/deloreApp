@@ -55,17 +55,50 @@ const AddClient = () => {
 
     const buildUrls = (rawAddress) => {
       const addr = String(rawAddress || '').trim();
-      const base = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&q=${encodeURIComponent(addr)}`;
+      const urls = [];
+
+      // 1) Base free-text
+      urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&q=${encodeURIComponent(addr)}`);
+
+      // 2) Country-biased free-text (Nigeria, Canada)
       const countries = [
         { code: 'ng', name: 'Nigeria' },
         { code: 'ca', name: 'Canada' },
       ];
-      const urls = [base];
       for (const { code, name } of countries) {
         const hasName = new RegExp(`\\b${name}\\b`, 'i').test(addr);
         const biasedAddr = hasName ? addr : `${addr}, ${name}`;
         urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&countrycodes=${code}&q=${encodeURIComponent(biasedAddr)}`);
       }
+
+      // 3) Nigeria-specific structured attempt (helps for addresses like "house 2 salam street ilorin kwara state nigeria")
+      const lower = addr.toLowerCase();
+      if (/(nigeria|ilorin|kwara)/i.test(addr)) {
+        const cleaned = addr
+          .replace(/\bstate\b/gi, '')
+          .replace(/^\s*house\s+/i, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        const streetOnly = cleaned
+          .replace(/\bnigeria\b/gi, '')
+          .replace(/\bilorin\b/gi, '')
+          .replace(/\bkwara\b/gi, '')
+          .replace(/\bstate\b/gi, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        const toTitle = s => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+        const streetTitle = toTitle(streetOnly);
+        const city = /\bilorin\b/i.test(addr) ? 'Ilorin' : 'Ilorin';
+        const state = /\bkwara\b/i.test(addr) ? 'Kwara' : 'Kwara';
+        // Structured query
+        urls.push(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&street=${encodeURIComponent(streetTitle)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&countrycodes=ng`
+        );
+        // Refined free-text, NG-biased
+        const refined = `${streetTitle}, ${city}, ${state}, Nigeria`;
+        urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=ng&q=${encodeURIComponent(refined)}`);
+      }
+
       return urls;
     };
 

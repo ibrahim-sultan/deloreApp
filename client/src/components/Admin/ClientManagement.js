@@ -119,16 +119,40 @@ const ClientManagement = () => {
 
         const buildUrls = (rawAddress) => {
             const addr = String(rawAddress || '').trim();
-            const base = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&q=${encodeURIComponent(addr)}`;
+            const urls = [];
+            // Base free-text
+            urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&q=${encodeURIComponent(addr)}`);
+            // Country-biased free-text (Nigeria, Canada)
             const countries = [
                 { code: 'ng', name: 'Nigeria' },
                 { code: 'ca', name: 'Canada' },
             ];
-            const urls = [base];
             for (const { code, name } of countries) {
                 const hasName = new RegExp(`\\b${name}\\b`, 'i').test(addr);
                 const biasedAddr = hasName ? addr : `${addr}, ${name}`;
                 urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&dedupe=1&countrycodes=${code}&q=${encodeURIComponent(biasedAddr)}`);
+            }
+            // Nigeria-specific structured attempt
+            if (/(nigeria|ilorin|kwara)/i.test(addr)) {
+                const cleaned = addr
+                    .replace(/\bstate\b/gi, '')
+                    .replace(/^\s*house\s+/i, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+                const streetOnly = cleaned
+                    .replace(/\bnigeria\b/gi, '')
+                    .replace(/\bilorin\b/gi, '')
+                    .replace(/\bkwara\b/gi, '')
+                    .replace(/\bstate\b/gi, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+                const toTitle = s => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+                const streetTitle = toTitle(streetOnly);
+                const city = /\bilorin\b/i.test(addr) ? 'Ilorin' : 'Ilorin';
+                const state = /\bkwara\b/i.test(addr) ? 'Kwara' : 'Kwara';
+                urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&street=${encodeURIComponent(streetTitle)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&countrycodes=ng`);
+                const refined = `${streetTitle}, ${city}, ${state}, Nigeria`;
+                urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=ng&q=${encodeURIComponent(refined)}`);
             }
             return urls;
         };
