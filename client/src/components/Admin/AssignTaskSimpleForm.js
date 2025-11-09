@@ -15,6 +15,13 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
 
   const selectedClient = clients.find(c => c._id === clientId);
 
+  // Auto-fill GPS when client is selected
+  React.useEffect(() => {
+    if (selectedClient?.coordinates?.latitude && selectedClient?.coordinates?.longitude) {
+      setLatitude(String(selectedClient.coordinates.latitude));
+      setLongitude(String(selectedClient.coordinates.longitude));
+    }
+  }, [selectedClient]);
 
   const toDateTime = (d, t) => (d && t ? `${d}T${t}` : '');
 
@@ -190,10 +197,43 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
             <span className="input-icon">🕐</span>
           </div>
         </div>
+        <div className="form-field full-width" style={{ gridColumn: '1 / -1', marginTop: '10px', padding: '10px', background: '#f0f8ff', borderRadius: '5px' }}>
+          <strong>📍 GPS Coordinates Required</strong>
+          {selectedClient?.address && (
+            <button 
+              type="button" 
+              style={{
+                marginLeft: '10px',
+                padding: '5px 15px',
+                background: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+              onClick={async () => {
+                try {
+                  if (!selectedClient?.address) { setError('Client address is required'); return; }
+                  const res = await axios.get('/api/admin/geocode', {
+                    params: { address: selectedClient.address },
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  });
+                  setLatitude(String(res.data.latitude));
+                  setLongitude(String(res.data.longitude));
+                  setError('');
+                } catch (e) {
+                  setError(e.response?.data?.message || 'Failed to geocode address');
+                }
+              }}
+            >
+              🔄 Auto-fill from client address
+            </button>
+          )}
+        </div>
         <div className="form-field">
           <label className="field-label">
             <span className="field-icon">🗺️</span>
-            Latitude
+            Latitude *
           </label>
           <div className="input-wrapper">
             <input 
@@ -211,7 +251,7 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
         <div className="form-field">
           <label className="field-label">
             <span className="field-icon">🗺️</span>
-            Longitude
+            Longitude *
           </label>
           <div className="input-wrapper">
             <input 
@@ -226,7 +266,7 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
             <span className="input-icon">🗺️</span>
           </div>
         </div>
-        <div className="form-field full-width">
+        <div className="form-field full-width" style={{ display: 'none' }}>
           <button type="button" className="save-task-btn" onClick={async () => {
             try {
               if (!selectedClient?.address) { setError('Client address is required'); return; }
