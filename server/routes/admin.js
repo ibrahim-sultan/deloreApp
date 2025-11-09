@@ -259,7 +259,7 @@ const mapUpload = multer({
   }
 });
 
-// Create and assign task to staff
+// Create and assign task to staff - UPDATED WITH REQUIRED COORDINATES
 router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
   body('title').trim().isLength({ min: 1 }).withMessage('Title is required')
     .custom((value) => {
@@ -271,8 +271,11 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
     }),
   body('description').trim().isLength({ min: 1 }).withMessage('Description is required'),
   body('location').trim().isLength({ min: 1 }).withMessage('Location is required'),
-  body('latitude').optional().isNumeric().withMessage('Latitude must be a number'),
-  body('longitude').optional().isNumeric().withMessage('Longitude must be a number'),
+  // UPDATED: Make latitude and longitude REQUIRED
+  body('latitude').notEmpty().withMessage('Latitude is required')
+    .isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('longitude').notEmpty().withMessage('Longitude is required')
+    .isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
   body('contactPerson').trim().isLength({ min: 1 }).withMessage('Contact person is required'),
   body('scheduledStartTime').isISO8601().withMessage('Valid start time is required'),
   body('scheduledEndTime').isISO8601().withMessage('Valid end time is required')
@@ -328,7 +331,15 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       return res.status(404).json({ message: 'Client not found' });
     }
 
-    // Create task with optional attachment
+    // Parse and validate coordinates
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+    
+    if (isNaN(lat) || isNaN(lon)) {
+      return res.status(400).json({ message: 'Invalid latitude or longitude values' });
+    }
+
+    // Create task with REQUIRED coordinates
     const taskData = {
       title,
       description,
@@ -340,17 +351,13 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
       createdBy: req.user._id,
       assignedTo: staffId,
       client: clientId,
-      status: 'assigned'
-    };
-
-    // Only set coordinates if provided
-    if (latitude !== undefined && longitude !== undefined) {
-      const lat = parseFloat(latitude);
-      const lon = parseFloat(longitude);
-      if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
-        taskData.coordinates = { latitude: lat, longitude: lon };
+      status: 'assigned',
+      // Coordinates are now ALWAYS set
+      coordinates: { 
+        latitude: lat, 
+        longitude: lon 
       }
-    }
+    };
     
     // Add attachment info if file was uploaded
     if (req.file) {
@@ -375,10 +382,12 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
           <p><strong>Title:</strong> ${title}</p>
           <p><strong>Description:</strong> ${description}</p>
           <p><strong>Location:</strong> ${location}</p>
+          <p><strong>Coordinates:</strong> ${lat}, ${lon}</p>
           <p><strong>Client:</strong> ${client.name}</p>
           <p><strong>Contact Person:</strong> ${contactPerson}</p>
           <p><strong>Start Time:</strong> ${new Date(scheduledStartTime).toLocaleString()}</p>
           <p><strong>End Time:</strong> ${new Date(scheduledEndTime).toLocaleString()}</p>
+          <p><strong>IMPORTANT:</strong> You must be within 500 meters of the assigned location to check in.</p>
           <p>Please log in to your portal to view more details and clock in when you arrive at the location.</p>
         `
       });
@@ -391,14 +400,16 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
     }
 
     res.status(201).json({ 
-      message: 'Task assigned successfully', 
+      message: 'Task assigned successfully with location coordinates', 
       task: {
         id: task._id,
         title: task.title,
         assignedTo: staff.name,
         client: client.name,
         scheduledStartTime: task.scheduledStartTime,
-        scheduledEndTime: task.scheduledEndTime
+        scheduledEndTime: task.scheduledEndTime,
+        coordinates: task.coordinates,
+        geofenceRadius: '500 meters'
       }
     });
   } catch (error) {
@@ -798,477 +809,4 @@ router.post('/override-clock-out/:taskId', adminAuth, [
     await task.save();
 
     res.json({ 
-      message: 'Admin override clock-out successful', 
-      task: {
-        id: task._id,
-        title: task.title,
-        clockOutTime: task.clockOutTime,
-        hoursSpent: task.hoursSpent
-      }
-    });
-  } catch (error) {
-    console.error('Error in admin override clock-out:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Get all staff activity logs
-router.get('/staff-logs', adminAuth, async (req, res) => {
-  try {
-    const { staffId, activityType, startDate, endDate, limit = 100 } = req.query;
-    
-    const query = {};
-    
-    if (staffId) {
-      query.user = staffId;
-    }
-    
-    if (activityType) {
-      query.activityType = activityType;
-    }
-    
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
-    }
-    
-    const logs = await ActivityLog.find(query)
-      .populate('user', 'name email role')
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
-    
-    res.json({ logs });
-  } catch (error) {
-    console.error('Error fetching staff logs:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Get activity logs for a specific staff member
-router.get('/staff-logs/:staffId', adminAuth, async (req, res) => {
-  try {
-    const { staffId } = req.params;
-    const { limit = 50 } = req.query;
-    
-    // Verify staff exists
-    const staff = await User.findOne({ _id: staffId, role: 'staff' });
-    if (!staff) {
-      return res.status(404).json({ message: 'Staff member not found' });
-    }
-    
-    const logs = await ActivityLog.find({ user: staffId })
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
-    
-    // Get activity statistics
-    const stats = await ActivityLog.aggregate([
-      { $match: { user: mongoose.Types.ObjectId(staffId) } },
-      { $group: { _id: '$activityType', count: { $sum: 1 } } }
-    ]);
-    
-    res.json({
-      staff: {
-        id: staff._id,
-        name: staff.name,
-        email: staff.email
-      },
-      logs,
-      statistics: stats
-    });
-  } catch (error) {
-    console.error('Error fetching staff member logs:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Admin documents - list all
-router.get('/documents', adminAuth, async (req, res) => {
-  try {
-    const documents = await Document.find()
-      .populate('uploadedBy', 'name email')
-      .sort({ createdAt: -1 })
-      .lean();
-    res.json({ documents });
-  } catch (error) {
-    console.error('Error fetching documents:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Admin documents - download
-router.get('/documents/:id/download', adminAuth, async (req, res) => {
-  try {
-    const doc = await Document.findById(req.params.id);
-    if (!doc) return res.status(404).json({ message: 'Document not found' });
-    if (!doc.filePath || !fs.existsSync(doc.filePath)) {
-      return res.status(404).json({ message: 'File not found on server' });
-    }
-    res.download(doc.filePath, doc.originalName);
-  } catch (error) {
-    console.error('Admin download document error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Admin documents - delete
-router.delete('/documents/:id', adminAuth, async (req, res) => {
-  try {
-    const doc = await Document.findById(req.params.id);
-    if (!doc) return res.status(404).json({ message: 'Document not found' });
-    try {
-      if (doc.filePath && fs.existsSync(doc.filePath)) fs.unlinkSync(doc.filePath);
-    } catch (e) {
-      console.warn('Failed to delete file from disk:', e.message);
-    }
-    await Document.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Document deleted successfully' });
-  } catch (error) {
-    console.error('Admin delete document error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Admin documents - bulk delete expired
-router.delete('/documents/expired/bulk', adminAuth, async (req, res) => {
-  try {
-    const now = new Date();
-    const expired = await Document.find({ expiryDate: { $lt: now } });
-    let deleted = 0;
-    for (const doc of expired) {
-      try {
-        if (doc.filePath && fs.existsSync(doc.filePath)) fs.unlinkSync(doc.filePath);
-      } catch (_) { /* ignore */ }
-      await Document.findByIdAndDelete(doc._id);
-      deleted++;
-    }
-    res.json({ message: 'Expired documents deleted', deleted });
-  } catch (error) {
-    console.error('Admin bulk delete expired error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Get all clients
-router.get('/clients', adminAuth, async (req, res) => {
-  try {
-    const clients = await Client.find()
-      .populate('addedBy', 'name email')
-      .sort({ name: 1 });
-    
-    res.json({ clients });
-  } catch (error) {
-    console.error('Error fetching clients:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Add new client
-router.post('/clients', adminAuth, [
-  body('name').trim().isLength({ min: 1 }).withMessage('Client name is required'),
-  body('address').trim().isLength({ min: 1 }).withMessage('Address is required'),
-  body('contactNumber').trim().isLength({ min: 1 }).withMessage('Contact number is required')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, address, contactNumber } = req.body;
-
-    // Check if client already exists
-    const existingClient = await Client.findOne({ name });
-    if (existingClient) {
-      return res.status(400).json({ message: 'Client with this name already exists' });
-    }
-
-    const client = new Client({
-      name,
-      address,
-      contactNumber,
-      addedBy: req.user._id
-    });
-
-    await client.save();
-
-    res.status(201).json({
-      message: 'Client added successfully',
-      client
-    });
-  } catch (error) {
-    console.error('Error adding client:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Update client
-router.put('/clients/:id', adminAuth, [
-  body('name').optional().trim().isLength({ min: 1 }).withMessage('Client name cannot be empty'),
-  body('address').optional().trim().isLength({ min: 1 }).withMessage('Address cannot be empty'),
-  body('contactNumber').optional().trim().isLength({ min: 1 }).withMessage('Contact number cannot be empty')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-
-    const { name, address, contactNumber } = req.body;
-    
-    if (name) client.name = name;
-    if (address) client.address = address;
-    if (contactNumber) client.contactNumber = contactNumber;
-
-    await client.save();
-
-    res.json({
-      message: 'Client updated successfully',
-      client
-    });
-  } catch (error) {
-    console.error('Error updating client:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Delete client
-router.delete('/clients/:id', adminAuth, async (req, res) => {
-  try {
-    const client = await Client.findById(req.params.id);
-    if (!client) {
-      return res.status(404).json({ message: 'Client not found' });
-    }
-
-    // Check if client has tasks
-    const tasksCount = await Task.countDocuments({ client: req.params.id });
-    if (tasksCount > 0) {
-      return res.status(400).json({ 
-        message: `Cannot delete client. ${tasksCount} task(s) are associated with this client.` 
-      });
-    }
-
-    await Client.findByIdAndDelete(req.params.id);
-
-    res.json({ message: 'Client deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting client:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Create new staff member
-router.post('/staff', adminAuth, [
-  body('name').trim().isLength({ min: 1 }).withMessage('Staff name is required'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('temporaryPassword').isLength({ min: 6 }).withMessage('Temporary password must be at least 6 characters')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, email, temporaryPassword } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User with this email already exists' });
-    }
-
-    // Create new staff member
-    const newStaff = new User({
-      name,
-      email,
-      password: temporaryPassword, // Will be hashed by pre-save hook
-      role: 'staff',
-      isActive: true,
-      isTemporaryPassword: true,
-      temporaryPasswordExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-    });
-
-    await newStaff.save();
-
-    res.status(201).json({
-      message: 'Staff member created successfully',
-      staff: {
-        id: newStaff._id,
-        name: newStaff.name,
-        email: newStaff.email,
-        role: newStaff.role
-      },
-      temporaryCredentials: {
-        email: newStaff.email,
-        temporaryPassword: temporaryPassword
-      }
-    });
-  } catch (error) {
-    console.error('Error creating staff member:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Document templates CRUD
-router.get('/document-templates', adminAuth, async (req, res) => {
-  try {
-    const templates = await DocumentTemplate.find().sort({ createdAt: -1 });
-    res.json({ templates });
-  } catch (e) {
-    res.status(500).json({ message: 'Failed to load templates' });
-  }
-});
-
-router.post('/document-templates', adminAuth, [
-  body('title').trim().isLength({ min: 1 }).withMessage('Title is required'),
-  body('description').optional().isString(),
-  body('requiredForAllStaff').optional().isBoolean()
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    const { title, description = '', requiredForAllStaff = true } = req.body;
-    const tpl = new DocumentTemplate({ title, description, requiredForAllStaff });
-    await tpl.save();
-    res.status(201).json({ message: 'Template created', template: tpl });
-  } catch (e) {
-    res.status(500).json({ message: 'Failed to create template' });
-  }
-});
-
-router.put('/document-templates/:id', adminAuth, async (req, res) => {
-  try {
-    const tpl = await DocumentTemplate.findById(req.params.id);
-    if (!tpl) return res.status(404).json({ message: 'Template not found' });
-    const { title, description, requiredForAllStaff } = req.body;
-    if (title !== undefined) tpl.title = title;
-    if (description !== undefined) tpl.description = description;
-    if (requiredForAllStaff !== undefined) tpl.requiredForAllStaff = requiredForAllStaff;
-    await tpl.save();
-    res.json({ message: 'Template updated', template: tpl });
-  } catch (e) {
-    res.status(500).json({ message: 'Failed to update template' });
-  }
-});
-
-router.delete('/document-templates/:id', adminAuth, async (req, res) => {
-  try {
-    await DocumentTemplate.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Template deleted' });
-  } catch (e) {
-    res.status(500).json({ message: 'Failed to delete template' });
-  }
-});
-
-// Toggle staff status (activate/deactivate)
-router.put('/staff/:staffId/toggle-status', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' });
-    if (!staff) {
-      return res.status(404).json({ message: 'Staff member not found' });
-    }
-
-    staff.isActive = !staff.isActive;
-    await staff.save();
-
-    res.json({
-      message: `Staff member ${staff.isActive ? 'activated' : 'deactivated'} successfully`,
-      staff: {
-        id: staff._id,
-        name: staff.name,
-        email: staff.email,
-        isActive: staff.isActive
-      }
-    });
-  } catch (error) {
-    console.error('Error toggling staff status:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Get staff member details
-router.get('/staff/:staffId', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' })
-      .select('name email isActive createdAt');
-    
-    if (!staff) {
-      return res.status(404).json({ message: 'Staff member not found' });
-    }
-
-    // Get staff activity counts
-    const totalDocuments = await Document.countDocuments({ uploadedBy: req.params.staffId });
-    const totalTasks = await Task.countDocuments({ assignedTo: req.params.staffId });
-    const totalPayments = await Payment.countDocuments({ staffMember: req.params.staffId });
-    
-    // Calculate total hours from completed tasks
-    const completedTasks = await Task.find({ 
-      assignedTo: req.params.staffId, 
-      status: 'completed' 
-    });
-    const totalHours = completedTasks.reduce((sum, task) => sum + (task.hoursSpent || 0), 0);
-
-    // Get recent documents
-    const documents = await Document.find({ uploadedBy: req.params.staffId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
-
-    // Get recent tasks
-    const tasks = await Task.find({ assignedTo: req.params.staffId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
-
-    res.json({
-      staff: {
-        ...staff.toObject(),
-        totalDocuments,
-        totalTasks,
-        totalHours: Math.round(totalHours * 10) / 10,
-        totalPayments
-      },
-      documents,
-      tasks
-    });
-  } catch (error) {
-    console.error('Error fetching staff details:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Delete staff member
-router.delete('/staff/:staffId', adminAuth, async (req, res) => {
-  try {
-    const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' });
-    if (!staff) {
-      return res.status(404).json({ message: 'Staff member not found' });
-    }
-
-    // Check if staff has assigned tasks
-    const assignedTasksCount = await Task.countDocuments({ 
-      assignedTo: req.params.staffId,
-      status: { $in: ['assigned', 'in-progress'] }
-    });
-    
-    if (assignedTasksCount > 0) {
-      return res.status(400).json({ 
-        message: `Cannot delete staff member. ${assignedTasksCount} active task(s) are assigned to this staff member.` 
-      });
-    }
-
-    await User.findByIdAndDelete(req.params.staffId);
-
-    res.json({ message: 'Staff member deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting staff member:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-module.exports = router;
+      message: 'Admin override clock-out successful
