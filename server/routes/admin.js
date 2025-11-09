@@ -824,4 +824,18 @@ router.post('/override-clock-out/:taskId', adminAuth, [
     await task.save();
 
     res.json({ 
-      message: 'Admin override clock-out successful
+      message: 'Admin override clock-out successful', 
+      task: {
+        id: task._id,
+        title: task.title,
+        clockOutTime: task.clockOutTime,
+        hoursSpent: task.hoursSpent
+      }
+    });
+  } catch (error) {
+    console.error('Error in admin override clock-out:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+module.exports = router;
