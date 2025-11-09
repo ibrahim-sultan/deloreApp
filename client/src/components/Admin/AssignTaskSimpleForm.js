@@ -12,6 +12,7 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
   const [longitude, setLongitude] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [geocoding, setGeocoding] = useState(false);
 
   const selectedClient = clients.find(c => c._id === clientId);
 
@@ -41,14 +42,18 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
     e.preventDefault();
     if (saving) return;
     
+    console.log('Form submit - Values:', { staffId, clientId, date, startTime, endTime, latitude, longitude });
+    
     // Validate required fields
     if (!staffId || !clientId || !date || !startTime || !endTime || latitude === '' || longitude === '') {
+      console.error('Validation failed - missing fields');
       setError('Please fill in all required fields (including latitude and longitude)');
       return;
     }
     
     setSaving(true);
     setError('');
+    console.log('Starting task assignment...');
 
     const scheduledStartTime = toDateTime(date, startTime);
     const scheduledEndTime = toDateTime(date, endTime);
@@ -79,13 +84,15 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
       form.append('latitude', latitude);
       form.append('longitude', longitude);
 
-      await axios.post('/api/admin/assign-task', form, {
+      console.log('Submitting task with form data...');
+      const response = await axios.post('/api/admin/assign-task', form, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
         }
       });
 
+      console.log('Task assigned successfully:', response.data);
       if (onSaved) onSaved();
       if (onClose) onClose();
     } catch (err) {
@@ -202,31 +209,50 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
           {selectedClient?.address && (
             <button 
               type="button" 
+              disabled={geocoding}
               style={{
                 marginLeft: '10px',
                 padding: '5px 15px',
-                background: '#4CAF50',
+                background: geocoding ? '#ccc' : '#4CAF50',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer'
+                cursor: geocoding ? 'not-allowed' : 'pointer',
+                opacity: geocoding ? 0.7 : 1
               }}
               onClick={async () => {
+                if (geocoding) return;
+                setGeocoding(true);
+                setError('');
+                console.log('Starting geocoding for address:', selectedClient.address);
                 try {
-                  if (!selectedClient?.address) { setError('Client address is required'); return; }
+                  if (!selectedClient?.address) { 
+                    setError('Client address is required'); 
+                    setGeocoding(false);
+                    return; 
+                  }
                   const res = await axios.get('/api/admin/geocode', {
                     params: { address: selectedClient.address },
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                   });
-                  setLatitude(String(res.data.latitude));
-                  setLongitude(String(res.data.longitude));
-                  setError('');
+                  console.log('Geocoding response:', res.data);
+                  if (res.data.latitude && res.data.longitude) {
+                    setLatitude(String(res.data.latitude));
+                    setLongitude(String(res.data.longitude));
+                    console.log('GPS coordinates set:', res.data.latitude, res.data.longitude);
+                  } else {
+                    setError('Geocoding returned invalid coordinates');
+                  }
                 } catch (e) {
-                  setError(e.response?.data?.message || 'Failed to geocode address');
+                  console.error('Geocoding error:', e);
+                  const errorMsg = e.response?.data?.message || e.message || 'Failed to geocode address';
+                  setError(errorMsg);
+                } finally {
+                  setGeocoding(false);
                 }
               }}
             >
-              🔄 Auto-fill from client address
+              {geocoding ? '⏳ Loading...' : '🔄 Auto-fill from client address'}
             </button>
           )}
         </div>

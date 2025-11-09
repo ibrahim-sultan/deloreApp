@@ -216,18 +216,20 @@
 .form-modal {
   background: #ffffff;
   border-radius: 14px;
-  max-width: 920px;
-  width: min(92%, 920px);
-  max-height: 90vh;
+  max-width: 1000px;
+  width: min(95%, 1000px);
+  max-height: 95vh;
   overflow: hidden;
   border: 1px solid #e5e7eb;
   box-shadow: 0 24px 64px rgba(2, 6, 23, 0.25);
   animation: modalSlideIn 0.25s ease-out;
+  display: flex;
+  flex-direction: column;
 }
 
 .assign-modal {
-  max-width: 920px;
-  width: min(92%, 920px);
+  max-width: 1000px;
+  width: min(95%, 1000px);
 }
 
 @keyframes modalSlideIn {
@@ -281,6 +283,9 @@
 
 .assign-form-container {
   padding: 1.5rem 2rem 2rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Assign modal form layout and inputs */
