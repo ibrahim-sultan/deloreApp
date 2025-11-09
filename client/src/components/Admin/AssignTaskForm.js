@@ -379,7 +379,7 @@ const AssignTaskForm = ({ staff, clients, onTaskAssigned, onCancel }) => {
                 <div className="form-section">
                     <h4 className="section-title">
                         <span className="section-icon">🌍</span>
-                        GPS Coordinates (Optional)
+                        GPS Coordinates (Required)
                     </h4>
                     <div className="form-grid">
                         <Input 
@@ -391,7 +391,7 @@ const AssignTaskForm = ({ staff, clients, onTaskAssigned, onCancel }) => {
                             value={latitude} 
                             onChange={onChange} 
                             placeholder="e.g., 34.0522" 
-                            required={false}
+                            required={true}
                         />
                         <Input 
                             icon="🗺️" 
@@ -402,8 +402,24 @@ const AssignTaskForm = ({ staff, clients, onTaskAssigned, onCancel }) => {
                             value={longitude} 
                             onChange={onChange} 
                             placeholder="e.g., -118.2437" 
-                            required={false}
+                            required={true}
                         />
+                        <div>
+                          <button type="button" className="modern-btn" onClick={async () => {
+                            try {
+                              if (!location) { alert('Enter location address first'); return; }
+                              const res = await axios.get('/api/admin/geocode', {
+                                params: { address: location },
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                              });
+                              setFormData(prev => ({ ...prev, latitude: res.data.latitude, longitude: res.data.longitude }));
+                            } catch (e) {
+                              alert(e.response?.data?.message || 'Failed to geocode address');
+                            }
+                          }}>
+                            Auto-fill from address
+                          </button>
+                        </div>
                     </div>
                 </div>
                 

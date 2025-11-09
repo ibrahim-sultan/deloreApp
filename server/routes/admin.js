@@ -13,6 +13,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { sendMail } = require('../utils/mailer');
+const { geocodeAddress } = require('../utils/geocode');
 
 const router = express.Router();
 
@@ -414,6 +415,20 @@ router.post('/assign-task', adminAuth, mapUpload.single('mapAttachment'), [
     });
   } catch (error) {
     console.error('Error assigning task:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Geocode an address (admin helper)
+router.get('/geocode', adminAuth, async (req, res) => {
+  try {
+    const { address } = req.query;
+    if (!address) return res.status(400).json({ message: 'address is required' });
+    const result = await geocodeAddress(address);
+    if (!result) return res.status(404).json({ message: 'Address not found' });
+    res.json(result);
+  } catch (error) {
+    console.error('Geocode error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

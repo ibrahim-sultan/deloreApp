@@ -406,6 +406,8 @@ router.post('/:id/clock-in', auth, async (req, res) => {
       if (dist > 500) {
         return res.status(400).json({ message: 'Must be within 500m of assigned location to check in' });
       }
+    } else {
+      return res.status(400).json({ message: 'Assigned location not set. Cannot check in' });
     }
 
     task.clockInTime = new Date();

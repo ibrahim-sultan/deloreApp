@@ -8,6 +8,8 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [recurring, setRecurring] = useState(false);
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,8 +35,8 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
     if (saving) return;
     
     // Validate required fields
-    if (!staffId || !clientId || !date || !startTime || !endTime) {
-      setError('Please fill in all required fields');
+    if (!staffId || !clientId || !date || !startTime || !endTime || latitude === '' || longitude === '') {
+      setError('Please fill in all required fields (including latitude and longitude)');
       return;
     }
     
@@ -67,12 +69,8 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
       form.append('totalHours', totalHours);
       form.append('staffId', staffId);
       form.append('clientId', clientId);
-      
-      // Include client coordinates if available
-      if (selectedClient?.coordinates?.latitude && selectedClient?.coordinates?.longitude) {
-        form.append('latitude', selectedClient.coordinates.latitude);
-        form.append('longitude', selectedClient.coordinates.longitude);
-      }
+      form.append('latitude', latitude);
+      form.append('longitude', longitude);
 
       await axios.post('/api/admin/assign-task', form, {
         headers: {
@@ -191,6 +189,60 @@ const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) =>
             />
             <span className="input-icon">🕐</span>
           </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🗺️</span>
+            Latitude
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="number" 
+              step="any" 
+              value={latitude} 
+              onChange={(e) => setLatitude(e.target.value)} 
+              className="form-input"
+              required
+              placeholder="e.g., 43.6532"
+            />
+            <span className="input-icon">🗺️</span>
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🗺️</span>
+            Longitude
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="number" 
+              step="any" 
+              value={longitude} 
+              onChange={(e) => setLongitude(e.target.value)} 
+              className="form-input"
+              required
+              placeholder="e.g., -79.3832"
+            />
+            <span className="input-icon">🗺️</span>
+          </div>
+        </div>
+        <div className="form-field full-width">
+          <button type="button" className="save-task-btn" onClick={async () => {
+            try {
+              if (!selectedClient?.address) { setError('Client address is required'); return; }
+              const res = await axios.get('/api/admin/geocode', {
+                params: { address: selectedClient.address },
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              });
+              setLatitude(String(res.data.latitude));
+              setLongitude(String(res.data.longitude));
+              setError('');
+            } catch (e) {
+              setError(e.response?.data?.message || 'Failed to geocode address');
+            }
+          }}>
+            Auto-fill GPS from client address
+          </button>
         </div>
       </div>
 
