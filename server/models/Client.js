@@ -7,6 +7,12 @@ const clientSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    email: {
+        type: String,
+        required: false,
+        trim: true,
+        lowercase: true
+    },
     address: {
         type: String,
         required: true,
@@ -15,6 +21,21 @@ const clientSchema = new mongoose.Schema({
     contactNumber: {
         type: String,
         required: true,
+        trim: true
+    },
+    contactPerson: {
+        type: String,
+        required: false,
+        trim: true
+    },
+    businessType: {
+        type: String,
+        required: false,
+        trim: true
+    },
+    notes: {
+        type: String,
+        required: false,
         trim: true
     },
     coordinates: {
