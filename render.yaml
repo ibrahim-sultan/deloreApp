@@ -3,10 +3,13 @@ services:
     name: delore-app
     env: node
     plan: starter
+    # Avoid relative cd paths; run installs/builds from repo root using npm --prefix
     buildCommand: |
-      cd server && npm install
-      cd ../client && npm install && npm run build
-    startCommand: cd server && npm start
+      npm --prefix server ci --no-audit --no-fund || npm --prefix server install --no-audit --no-fund
+      npm --prefix client ci --no-audit --no-fund || npm --prefix client install --no-audit --no-fund
+      npm --prefix client run build
+    # Start the API server directly
+    startCommand: npm --prefix server start
     envVars:
       - key: NODE_ENV
         value: production
