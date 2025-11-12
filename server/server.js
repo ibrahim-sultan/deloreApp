@@ -54,6 +54,7 @@ const connectDB = async () => {
 connectDB();
 
 // Routes
+app.use(require('./routes/review')); // mounts /review-access and /api/review/*
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/tasks', require('./routes/tasks'));
