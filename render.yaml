@@ -16,6 +16,12 @@ services:
         generateValue: true
       - key: MONGODB_URI
         sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://portal.delorequality.com
+      - key: CLIENT_BASE_URL
+        value: https://portal.delorequality.com
+      - key: REVIEW_MAX_LINK_TTL_SECONDS
+        value: 2592000 # 30 days max (allows 12-day links)
     healthCheckPath: /api/health
 
 databases:
