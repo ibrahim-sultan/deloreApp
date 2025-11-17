@@ -577,6 +577,9 @@ router.put('/tasks/:id', adminAuth, async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
 
+    // Track previous assignee for email notification logic
+    const previousAssignedTo = task.assignedTo ? task.assignedTo.toString() : null;
+
     // Update fields
     if (assignedTo) task.assignedTo = assignedTo;
     if (client) task.client = client;
@@ -585,6 +588,45 @@ router.put('/tasks/:id', adminAuth, async (req, res) => {
     if (scheduledEndTime) task.scheduledEndTime = scheduledEndTime;
 
     await task.save();
+    
+    // Send email notification if task was newly assigned or reassigned
+    try {
+      const newAssignedTo = task.assignedTo ? task.assignedTo.toString() : null;
+      if (newAssignedTo && newAssignedTo !== previousAssignedTo) {
+        const staff = await User.findById(newAssignedTo);
+        const clientInfo = await Client.findById(task.client);
+        
+        if (staff) {
+          await sendMail({
+            to: staff.email,
+            subject: `Task ${previousAssignedTo ? 'Reassigned' : 'Assigned'}: ${task.title}`,
+            html: `
+              <h2>You have been ${previousAssignedTo ? 'reassigned' : 'assigned'} a task</h2>
+              <p><strong>Title:</strong> ${task.title}</p>
+              <p><strong>Description:</strong> ${task.description}</p>
+              <p><strong>Location:</strong> ${task.location}</p>
+              ${task.coordinates ? `<p><strong>Coordinates:</strong> ${task.coordinates.latitude}, ${task.coordinates.longitude}</p>` : ''}
+              ${clientInfo ? `<p><strong>Client:</strong> ${clientInfo.name}</p>` : ''}
+              ${task.contactPerson ? `<p><strong>Contact Person:</strong> ${task.contactPerson}</p>` : ''}
+              ${task.scheduledStartTime ? `<p><strong>Start Time:</strong> ${new Date(task.scheduledStartTime).toLocaleString()}</p>` : ''}
+              ${task.scheduledEndTime ? `<p><strong>End Time:</strong> ${new Date(task.scheduledEndTime).toLocaleString()}</p>` : ''}
+              <p><strong>Total Hours:</strong> ${task.totalHours}</p>
+              ${task.coordinates ? '<p><strong>IMPORTANT:</strong> You must be within 500 meters of the assigned location to check in.</p>' : ''}
+              <p>Please log in to your portal to view more details.</p>
+            `
+          });
+          
+          // Update notification status
+          task.notificationSent = true;
+          await task.save();
+          
+          console.log(`Email notification sent to ${staff.email} for task ${task._id}`);
+        }
+      }
+    } catch (emailError) {
+      console.error('Email notification failed:', emailError.message);
+      // Continue even if email fails
+    }
     
     res.json({ 
       message: 'Task updated successfully',
