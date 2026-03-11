@@ -132,13 +132,14 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
     }
   };
 
-  const handleDeleteStaff = async (staffId) => {
+  const handleDeleteStaff = async (staffId, force = false) => {
     setDeleteLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      await axios.delete(`/api/admin/staff/${staffId}`);
+      const url = force ? `/api/admin/staff/${staffId}?force=true` : `/api/admin/staff/${staffId}`;
+      await axios.delete(url);
       setSuccess('Staff member deleted successfully');
       setDeleteConfirm(null);
       onUpdate(); // Refresh staff list
@@ -148,8 +149,18 @@ const StaffManagement = ({ staffMembers, onUpdate }) => {
         closeDetails();
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to delete staff member';
-      setError(errorMessage);
+      const errorData = error.response?.data;
+      // If staff has associated records and force is not enabled, offer to force delete
+      if (errorData?.hasRecords && !force) {
+        const message = `${errorData.message}\n\nThis staff has:\n- ${errorData.taskCount} tasks\n- ${errorData.documentCount} documents\n- ${errorData.paymentCount} payments\n\nDo you want to delete all associated records and remove this staff member?`;
+        if (window.confirm(message)) {
+          await handleDeleteStaff(staffId, true);
+          return;
+        }
+      } else {
+        const errorMessage = errorData?.message || 'Failed to delete staff member';
+        setError(errorMessage);
+      }
       setDeleteConfirm(null);
     } finally {
       setDeleteLoading(false);

@@ -555,24 +555,38 @@ router.put('/staff/:staffId/toggle-status', adminAuth, async (req, res) => {
 // Delete staff member
 router.delete('/staff/:staffId', adminAuth, async (req, res) => {
   try {
+    const { force } = req.query; // Allow force delete
     const staff = await User.findOne({ _id: req.params.staffId, role: 'staff' });
     if (!staff) {
       return res.status(404).json({ message: 'Staff member not found' });
     }
 
-    // Check for associated records
-    const taskCount = await Task.countDocuments({ assignedTo: req.params.staffId });
-    const documentCount = await Document.countDocuments({ uploadedBy: req.params.staffId });
-    const paymentCount = await Payment.countDocuments({ staffMember: req.params.staffId });
+    // Check for associated records (unless force delete is requested)
+    if (!force) {
+      const taskCount = await Task.countDocuments({ assignedTo: req.params.staffId });
+      const documentCount = await Document.countDocuments({ uploadedBy: req.params.staffId });
+      const paymentCount = await Payment.countDocuments({ staffMember: req.params.staffId });
 
-    if (taskCount > 0 || documentCount > 0 || paymentCount > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete staff member with associated records. Please remove associated tasks, documents, and payments first.' 
-      });
+      if (taskCount > 0 || documentCount > 0 || paymentCount > 0) {
+        return res.status(400).json({ 
+          message: 'Cannot delete staff member with associated records. Please remove associated tasks, documents, and payments first, or use ?force=true to delete all associated records.',
+          hasRecords: true,
+          taskCount,
+          documentCount,
+          paymentCount
+        });
+      }
+    }
+
+    // If force delete, remove all associated records
+    if (force === 'true') {
+      await Task.deleteMany({ assignedTo: req.params.staffId });
+      await Document.deleteMany({ uploadedBy: req.params.staffId });
+      await Payment.deleteMany({ staffMember: req.params.staffId });
     }
 
     await User.findByIdAndDelete(req.params.staffId);
-    res.json({ message: 'Staff member deleted successfully' });
+    res.json({ message: 'Staff member deleted successfully', forceDeleted: force === 'true' });
   } catch (error) {
     console.error('Error deleting staff:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
