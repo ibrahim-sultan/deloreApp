@@ -34,6 +34,27 @@ const TaskManagement = () => {
     }
   };
 
+  const handleDeleteAllPending = async () => {
+    const pendingCount = allTasks.filter(t => t.status === 'assigned').length;
+    if (pendingCount === 0) {
+      alert('No pending tasks to delete');
+      return;
+    }
+    
+    if (!window.confirm(`Are you sure you want to delete ALL ${pendingCount} pending tasks? This cannot be undone.`)) return;
+    
+    try {
+      const response = await axios.delete('/api/admin/tasks/pending/all', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      alert(response.data.message);
+      fetchData(); // Refresh the list
+    } catch (error) {
+      console.error('Delete all error:', error);
+      alert(error.response?.data?.message || 'Failed to delete pending tasks');
+    }
+  };
+
   const handleUpdateTask = async (taskId, updates) => {
     try {
       await axios.put(`/api/admin/tasks/${taskId}`, updates, {
@@ -129,7 +150,18 @@ const TaskManagement = () => {
     <div className="simple-task-page">
       <div className="simple-header">
         <h2>All Assigned Tasks</h2>
-        <button className="primary-btn" onClick={() => setShowAssign(true)}>Assign New Task</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {allTasks.filter(t => t.status === 'assigned').length > 0 && (
+            <button 
+              className="danger-btn" 
+              onClick={handleDeleteAllPending}
+              title="Delete all pending tasks"
+            >
+              Delete All Pending ({allTasks.filter(t => t.status === 'assigned').length})
+            </button>
+          )}
+          <button className="primary-btn" onClick={() => setShowAssign(true)}>Assign New Task</button>
+        </div>
       </div>
 
       <div className="simple-filter">
