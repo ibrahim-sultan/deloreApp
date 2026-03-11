@@ -17,6 +17,7 @@ const ClientManagement = () => {
         streetType: '',
         contactNumber: '',
         contactPerson: '',
+        caseWorkerName: '',
         businessType: '',
         notes: '',
         latitude: '',
@@ -53,6 +54,7 @@ const ClientManagement = () => {
             streetType: '',
             contactNumber: '',
             contactPerson: '',
+            caseWorkerName: '',
             businessType: '',
             notes: '',
             latitude: '',
@@ -72,6 +74,7 @@ const ClientManagement = () => {
             streetType: '',
             contactNumber: client.contactNumber || '',
             contactPerson: client.contactPerson || '',
+            caseWorkerName: client.caseWorkerName || '',
             businessType: client.businessType || '',
             notes: client.notes || '',
             latitude: client.coordinates?.latitude || '',
@@ -92,6 +95,7 @@ const ClientManagement = () => {
             streetType: '',
             contactNumber: '',
             contactPerson: '',
+            caseWorkerName: '',
             businessType: '',
             notes: '',
             latitude: '',
@@ -293,7 +297,8 @@ const ClientManagement = () => {
     const filteredClients = clients.filter(client => 
         client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.address?.toLowerCase().includes(searchTerm.toLowerCase())
+        client.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.caseWorkerName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -341,6 +346,7 @@ const ClientManagement = () => {
                             <tr>
                                 <th>Name</th>
                                 <th>Email</th>
+                                <th>Case Worker</th>
                                 <th>Address</th>
                                 <th>Actions</th>
                             </tr>
@@ -348,7 +354,7 @@ const ClientManagement = () => {
                         <tbody>
                             {filteredClients.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" className="empty-state-cell">
+                                    <td colSpan="5" className="empty-state-cell">
                                         <div className="empty-message">
                                             <span className="empty-icon">📭</span>
                                             <p>No clients found</p>
@@ -360,6 +366,7 @@ const ClientManagement = () => {
                                     <tr key={client._id}>
                                         <td className="client-name-cell">{client.name}</td>
                                         <td>{client.email || '-'}</td>
+                                        <td>{client.caseWorkerName || '-'}</td>
                                         <td className="address-cell">{client.address || '-'}</td>
                                         <td>
                                             <div className="action-buttons">
@@ -541,6 +548,18 @@ const ClientManagement = () => {
                                     value={formData.contactPerson}
                                     onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
                                     placeholder="Contact person name"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label htmlFor="caseWorkerName">Case Worker Name</label>
+                                <input
+                                    type="text"
+                                    id="caseWorkerName"
+                                    name="caseWorkerName"
+                                    value={formData.caseWorkerName}
+                                    onChange={(e) => setFormData({ ...formData, caseWorkerName: e.target.value })}
+                                    placeholder="Case worker name"
                                 />
                             </div>
 
