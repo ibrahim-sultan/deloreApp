@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Admin Debug Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #e9ecef;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        input[type="text"], input[type="password"] {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .step {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Production Admin Dashboard Debug Tool</h1>
+    <div class="info">
+        <strong>Purpose:</strong> Debug the admin dashboard issue on Render deployment
+    </div>
+
+    <div class="container">
+        <h3>Step 1: Test Server Health</h3>
+        <button onclick="testServerHealth()">Test Production Server</button>
+        <div id="healthResult"></div>
+    </div>
+
+    <div class="container">
+        <h3>Step 2: Admin Login</h3>
+        <div class="step">
+            Use the credentials from your deployment (default: admin@delore.com / delore@123)
+        </div>
+        <input type="text" id="email" placeholder="Admin Email" value="admin@delore.com">
+        <input type="password" id="password" placeholder="Admin Password" value="delore@123">
+        <button onclick="adminLogin()">Login as Admin</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h3>Step 3: Test Dashboard Endpoint</h3>
+        <button onclick="testDashboard()" id="dashboardBtn" disabled>Test /api/admin/dashboard</button>
+        <div id="dashboardResult"></div>
+    </div>
+
+    <div class="container">
+        <h3>Step 4: Test Individual Models</h3>
+        <button onclick="testUsers()" id="usersBtn" disabled>Test Users</button>
+        <button onclick="testTasks()" id="tasksBtn" disabled>Test Tasks</button>
+        <button onclick="testDocuments()" id="documentsBtn" disabled>Test Documents</button>
+        <div id="modelsResult"></div>
+    </div>
+
+    <div class="container">
+        <h3>Step 5: Console Logs</h3>
+        <div class="info">Check browser console (F12) for detailed error messages</div>
+        <button onclick="showConsoleInfo()">Show Debug Info</button>
+        <div id="consoleResult"></div>
+    </div>
+
+    <script>
+        // Use production URL - replace with your Render deployment URL
+        const PRODUCTION_URL = 'https://deloreapp.onrender.com';
+        let authToken = null;
+
+        // Set axios base URL to production
+        axios.defaults.baseURL = PRODUCTION_URL;
+        
+        console.log('🔍 Production Debug Tool Started');
+        console.log('Target URL:', PRODUCTION_URL);
+
+        async function testServerHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            try {
+                console.log('Testing server health...');
+                const response = await axios.get('/api/health');
+                console.log('Health check response:', response.data);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Server is running: ${response.data.message}
+                        <br>Status: ${response.status}
+                        <br>URL: ${PRODUCTION_URL}/api/health
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Health check failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Server health check failed
+                        <br>Error: ${error.message}
+                        <br>Status: ${error.response?.status || 'No response'}
+                        <pre>${JSON.stringify(error.response?.data || error.message, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function adminLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('loginResult');
+            
+            if (!email || !password) {
+                resultDiv.innerHTML = '<div class="error">Please enter email and password</div>';
+                return;
+            }
+
+            try {
+                console.log('Attempting admin login...');
+                const response = await axios.post('/api/auth/login', { email, password });
+                const { token, user } = response.data;
+                
+                authToken = token;
+                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                
+                // Enable other buttons
+                document.getElementById('dashboardBtn').disabled = false;
+                document.getElementById('usersBtn').disabled = false;
+                document.getElementById('tasksBtn').disabled = false;
+                document.getElementById('documentsBtn').disabled = false;
+                
+                console.log('Login successful:', user);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Login successful!
+                        <br>User: ${user.name} (${user.role})
+                        <br>Token: ${token.substring(0, 30)}...
+                        <br>User ID: ${user._id}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Login failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Login failed
+                        <br>Error: ${error.response?.data?.message || error.message}
+                        <br>Status: ${error.response?.status}
+                        <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testDashboard() {
+            const resultDiv = document.getElementById('dashboardResult');
+            try {
+                console.log('Testing dashboard endpoint...');
+                console.log('Auth token:', axios.defaults.headers.common['Authorization']);
+                
+                const response = await axios.get('/api/admin/dashboard');
+                console.log('Dashboard response:', response.data);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Dashboard endpoint working!
+                        <br>Statistics: ${JSON.stringify(response.data.statistics)}
+                        <br>Staff count: ${response.data.staffMembers?.length || 0}
+                        <br>Documents by staff: ${response.data.documentsByStaff?.length || 0}
+                        <br>Tasks by staff: ${response.data.tasksByStaff?.length || 0}
+                    </div>
+                    <pre>${JSON.stringify(response.data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Dashboard test failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Dashboard endpoint failed
+                        <br>Error: ${error.response?.data?.message || error.message}
+                        <br>Status: ${error.response?.status}
+                        <br>URL: ${PRODUCTION_URL}/api/admin/dashboard
+                        <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testUsers() {
+            const resultDiv = document.getElementById('modelsResult');
+            try {
+                console.log('Testing direct model access...');
+                const response = await axios.get('/api/auth/me');
+                console.log('User info:', response.data);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        ✅ User model working
+                        <br>Current user: ${response.data.name}
+                        <br>Role: ${response.data.role}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('User test failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ User model test failed
+                        <br>Error: ${error.message}
+                        <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testTasks() {
+            try {
+                const response = await axios.get('/api/admin/assigned-tasks');
+                console.log('Tasks response:', response.data);
+                
+                document.getElementById('modelsResult').innerHTML += `
+                    <div class="success">
+                        ✅ Task model working
+                        <br>Tasks found: ${response.data?.length || 0}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Task test failed:', error);
+                document.getElementById('modelsResult').innerHTML += `
+                    <div class="error">
+                        ❌ Task model test failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testDocuments() {
+            try {
+                const response = await axios.get('/api/documents/my-documents');
+                console.log('Documents response:', response.data);
+                
+                document.getElementById('modelsResult').innerHTML += `
+                    <div class="success">
+                        ✅ Document model working
+                        <br>Documents found: ${response.data?.documents?.length || 0}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Document test failed:', error);
+                document.getElementById('modelsResult').innerHTML += `
+                    <div class="error">
+                        ❌ Document model test failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function showConsoleInfo() {
+            const resultDiv = document.getElementById('consoleResult');
+            resultDiv.innerHTML = `
+                <div class="info">
+                    <strong>Debug Information:</strong>
+                    <br>Production URL: ${PRODUCTION_URL}
+                    <br>Auth Token: ${authToken ? 'Present' : 'Missing'}
+                    <br>Axios Base URL: ${axios.defaults.baseURL}
+                    <br>Axios Auth Header: ${axios.defaults.headers.common['Authorization'] || 'Not set'}
+                    <br>Timestamp: ${new Date().toISOString()}
+                    <br><br>
+                    <strong>Next Steps:</strong>
+                    <br>1. Check browser console for detailed error messages
+                    <br>2. Check Render deployment logs
+                    <br>3. Verify MongoDB connection in production
+                    <br>4. Check if all environment variables are set
+                </div>
+            `;
+        }
+
+        // Auto-run health check on load
+        window.onload = function() {
+            testServerHealth();
+        };
+    </script>
+</body>
+</html>

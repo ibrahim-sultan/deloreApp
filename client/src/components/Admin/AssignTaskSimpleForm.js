@@ -1,0 +1,339 @@
+import React, { useState } from 'react';
+import axios from 'axios';
+
+const AssignTaskSimpleForm = ({ staff = [], clients = [], onClose, onSaved }) => {
+  const [staffId, setStaffId] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [recurring, setRecurring] = useState(false);
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [geocoding, setGeocoding] = useState(false);
+
+  const selectedClient = clients.find(c => c._id === clientId);
+
+  // Auto-fill GPS when client is selected
+  React.useEffect(() => {
+    if (selectedClient?.coordinates?.latitude && selectedClient?.coordinates?.longitude) {
+      setLatitude(String(selectedClient.coordinates.latitude));
+      setLongitude(String(selectedClient.coordinates.longitude));
+    }
+  }, [selectedClient]);
+
+  const toDateTime = (d, t) => (d && t ? `${d}T${t}` : '');
+
+  const calcTotalHours = (start, end) => {
+    try {
+      if (!start || !end) return '';
+      const s = new Date(start);
+      const e = new Date(end);
+      const diff = (e - s) / (1000 * 60 * 60);
+      return diff > 0 ? diff.toFixed(2) : '';
+    } catch {
+      return '';
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+    
+    console.log('Form submit - Values:', { staffId, clientId, date, startTime, endTime, latitude, longitude });
+    
+    // Validate required fields
+    if (!staffId || !clientId || !date || !startTime || !endTime || latitude === '' || longitude === '') {
+      console.error('Validation failed - missing fields');
+      setError('Please fill in all required fields (including latitude and longitude)');
+      return;
+    }
+    
+    setSaving(true);
+    setError('');
+    console.log('Starting task assignment...');
+
+    const scheduledStartTime = toDateTime(date, startTime);
+    const scheduledEndTime = toDateTime(date, endTime);
+    const totalHours = calcTotalHours(scheduledStartTime, scheduledEndTime);
+    
+    if (!totalHours || parseFloat(totalHours) <= 0) {
+      setError('End time must be after start time');
+      setSaving(false);
+      return;
+    }
+
+    try {
+      // Find selected client and staff names for better task title
+      const selectedClient = clients.find(c => c._id === clientId);
+      const selectedStaff = staff.find(s => s._id === staffId);
+      
+      const form = new FormData();
+      // Create a meaningful title with hours included (required by backend validation)
+      form.append('title', `Task for ${selectedClient?.name || 'Client'} ${totalHours}`);
+      form.append('description', `Task assigned to ${selectedStaff?.name || 'staff member'} for ${selectedClient?.name || 'client'}`);
+      form.append('location', selectedClient?.address || 'TBD');
+      form.append('contactPerson', selectedClient?.contactNumber || 'N/A');
+      form.append('scheduledStartTime', scheduledStartTime);
+      form.append('scheduledEndTime', scheduledEndTime);
+      form.append('totalHours', totalHours);
+      form.append('staffId', staffId);
+      form.append('clientId', clientId);
+      form.append('latitude', latitude);
+      form.append('longitude', longitude);
+
+      console.log('Submitting task with form data...');
+      const response = await axios.post('/api/admin/assign-task', form, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      console.log('Task assigned successfully:', response.data);
+      if (onSaved) onSaved();
+      if (onClose) onClose();
+    } catch (err) {
+      console.error('Task assignment error:', err);
+      const errorMsg = err.response?.data?.message || 
+                       err.response?.data?.errors?.[0]?.msg ||
+                       'Failed to save task';
+      setError(errorMsg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="assign-task-form-container">
+      {error && <div className="alert alert-error">{error}</div>}
+
+      <form onSubmit={handleSubmit}>
+        <div className="form-grid">
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">👤</span>
+            Assign to Staff
+          </label>
+          <div className="select-wrapper">
+            <select 
+              value={staffId} 
+              onChange={(e) => setStaffId(e.target.value)} 
+              className="form-select"
+              required
+            >
+              <option value="">Select Staff</option>
+              {staff.map(s => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+            <span className="select-arrow">▼</span>
+          </div>
+        </div>
+
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🏢</span>
+            Select Client
+          </label>
+          <div className="select-wrapper">
+            <select 
+              value={clientId} 
+              onChange={(e) => setClientId(e.target.value)} 
+              className="form-select"
+              required
+            >
+              <option value="">Select Client</option>
+              {clients.map(c => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+            <span className="select-arrow">▼</span>
+          </div>
+        </div>
+
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">📅</span>
+            Date
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="date" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)} 
+              className="form-input"
+              required 
+            />
+            <span className="input-icon">📅</span>
+          </div>
+        </div>
+
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🕐</span>
+            Start Time
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="time" 
+              value={startTime} 
+              onChange={(e) => setStartTime(e.target.value)} 
+              className="form-input"
+              required 
+            />
+            <span className="input-icon">🕐</span>
+          </div>
+        </div>
+
+        <div className="form-field full-width">
+          <label className="field-label">
+            <span className="field-icon">🕐</span>
+            Check-out Time
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="time" 
+              value={endTime} 
+              onChange={(e) => setEndTime(e.target.value)} 
+              className="form-input"
+              placeholder="--:--"
+            />
+            <span className="input-icon">🕐</span>
+          </div>
+        </div>
+        <div className="form-field full-width" style={{ gridColumn: '1 / -1', marginTop: '10px', padding: '10px', background: '#f0f8ff', borderRadius: '5px' }}>
+          <strong>📍 GPS Coordinates Required</strong>
+          {selectedClient?.address && (
+            <button 
+              type="button" 
+              disabled={geocoding}
+              style={{
+                marginLeft: '10px',
+                padding: '5px 15px',
+                background: geocoding ? '#ccc' : '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: geocoding ? 'not-allowed' : 'pointer',
+                opacity: geocoding ? 0.7 : 1
+              }}
+              onClick={async () => {
+                if (geocoding) return;
+                setGeocoding(true);
+                setError('');
+                console.log('Starting geocoding for address:', selectedClient.address);
+                try {
+                  if (!selectedClient?.address) { 
+                    setError('Client address is required'); 
+                    setGeocoding(false);
+                    return; 
+                  }
+                  const res = await axios.get('/api/admin/geocode', {
+                    params: { address: selectedClient.address },
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  });
+                  console.log('Geocoding response:', res.data);
+                  if (res.data.latitude && res.data.longitude) {
+                    setLatitude(String(res.data.latitude));
+                    setLongitude(String(res.data.longitude));
+                    console.log('GPS coordinates set:', res.data.latitude, res.data.longitude);
+                  } else {
+                    setError('Geocoding returned invalid coordinates');
+                  }
+                } catch (e) {
+                  console.error('Geocoding error:', e);
+                  const errorMsg = e.response?.data?.message || e.message || 'Failed to geocode address';
+                  setError(errorMsg);
+                } finally {
+                  setGeocoding(false);
+                }
+              }}
+            >
+              {geocoding ? '⏳ Loading...' : '🔄 Auto-fill from client address'}
+            </button>
+          )}
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🗺️</span>
+            Latitude *
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="number" 
+              step="any" 
+              value={latitude} 
+              onChange={(e) => setLatitude(e.target.value)} 
+              className="form-input"
+              required
+              placeholder="e.g., 43.6532"
+            />
+            <span className="input-icon">🗺️</span>
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            <span className="field-icon">🗺️</span>
+            Longitude *
+          </label>
+          <div className="input-wrapper">
+            <input 
+              type="number" 
+              step="any" 
+              value={longitude} 
+              onChange={(e) => setLongitude(e.target.value)} 
+              className="form-input"
+              required
+              placeholder="e.g., -79.3832"
+            />
+            <span className="input-icon">🗺️</span>
+          </div>
+        </div>
+        <div className="form-field full-width" style={{ display: 'none' }}>
+          <button type="button" className="save-task-btn" onClick={async () => {
+            try {
+              if (!selectedClient?.address) { setError('Client address is required'); return; }
+              const res = await axios.get('/api/admin/geocode', {
+                params: { address: selectedClient.address },
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              });
+              setLatitude(String(res.data.latitude));
+              setLongitude(String(res.data.longitude));
+              setError('');
+            } catch (e) {
+              setError(e.response?.data?.message || 'Failed to geocode address');
+            }
+          }}>
+            Auto-fill GPS from client address
+          </button>
+        </div>
+      </div>
+
+      {/* Removed address display from admin UI per request */}
+
+
+        <div className="checkbox-field">
+          <label className="checkbox-label">
+            <input 
+              type="checkbox" 
+              checked={recurring} 
+              onChange={(e) => setRecurring(e.target.checked)}
+              className="checkbox-input"
+            />
+            <span className="checkbox-text">Recurring assignment</span>
+          </label>
+        </div>
+
+        <button type="submit" className="save-task-btn" disabled={saving}>
+          {saving ? 'Saving...' : 'Save Task'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default AssignTaskSimpleForm;
+
