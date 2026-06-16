@@ -43,9 +43,12 @@ const StaffLogs = () => {
       const response = await axios.get('/api/admin/staff', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setStaffMembers(response.data);
+      // Handle both array and object response formats
+      const staffData = Array.isArray(response.data) ? response.data : (response.data.staff || []);
+      setStaffMembers(staffData);
     } catch (error) {
       console.error('Error fetching staff members:', error);
+      setStaffMembers([]);
     }
   };
 
@@ -66,7 +69,9 @@ const StaffLogs = () => {
         params
       });
       
-      setLogs(response.data.logs);
+      // Handle both array and object response formats
+      const logsData = Array.isArray(response.data) ? response.data : (response.data.logs || []);
+      setLogs(logsData);
       setError('');
     } catch (error) {
       console.error('Error fetching logs:', error);
@@ -133,7 +138,7 @@ const StaffLogs = () => {
     return colors[type] || '#757575';
   };
 
-  if (loading && logs.length === 0) {
+  if (loading && (!logs || logs.length === 0)) {
     return <LoadingSpinner message="Loading staff logs..." />;
   }
 
