@@ -474,6 +474,57 @@ router.get('/staff', adminAuth, async (req, res) => {
   }
 });
 
+// Create a new staff member
+router.post('/staff', adminAuth, [
+  body('name').trim().isLength({ min: 1 }).withMessage('Staff name is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('temporaryPassword').isLength({ min: 6 }).withMessage('Temporary password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, temporaryPassword } = req.body;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'A user with this email already exists' });
+    }
+
+    const staff = new User({
+      name,
+      email,
+      password: temporaryPassword,
+      role: 'staff',
+      isActive: true,
+      isTemporaryPassword: true,
+      temporaryPasswordExpiry: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    });
+
+    await staff.save();
+
+    res.status(201).json({
+      message: 'Staff user created successfully',
+      staff: {
+        id: staff._id,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+        isActive: staff.isActive
+      },
+      temporaryCredentials: {
+        email: staff.email,
+        temporaryPassword
+      }
+    });
+  } catch (error) {
+    console.error('Error creating staff user:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get staff member details with documents, tasks, and payments
 router.get('/staff/:staffId', adminAuth, async (req, res) => {
   try {
