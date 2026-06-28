@@ -86,10 +86,9 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       staffMembers = await User.find({ role: 'staff' })
         .select('name email isActive createdAt')
         .sort({ createdAt: -1 })
-        .limit(20)
         .lean();
       
-      statistics.activeStaff = staffMembers.filter(s => s.isActive).length;
+      statistics.activeStaff = await User.countDocuments({ role: 'staff', isActive: true }) || 0;
       console.log('Staff members loaded:', staffMembers.length);
     } catch (staffError) {
       console.error('Error loading staff:', staffError);
